@@ -1,7 +1,12 @@
 ﻿import { revalidatePath } from "next/cache";
 
+import { MonthSelector } from "@/components/finance/month-selector";
 import { AppShell } from "@/components/layout/app-shell";
-import { todayValue } from "@/lib/finance/dates";
+import {
+  currentMonthValue,
+  shiftMonth,
+  todayValue,
+} from "@/lib/finance/dates";
 import {
   incomePlanDraftToInsert,
   incomePlanRowToIncomePlan,
@@ -17,6 +22,20 @@ import {
 import { requireUser } from "@/lib/supabase/auth";
 
 export const dynamic = "force-dynamic";
+
+type IncomePageProps = {
+  searchParams?: Promise<{
+    month?: string;
+  }>;
+};
+
+function resolveMonth(month?: string) {
+  if (!month || !/^\d{4}-\d{2}$/.test(month)) {
+    return currentMonthValue();
+  }
+
+  return month;
+}
 
 async function createIncomePlanAction(formData: FormData) {
   "use server";
@@ -139,7 +158,11 @@ async function deleteExpectedIncomeAction(formData: FormData) {
   revalidatePath("/dashboard");
 }
 
-export default async function IncomePage() {
+export default async function IncomePage({ searchParams }: IncomePageProps) {
+  const params = await searchParams;
+  const month = resolveMonth(params?.month);
+  const nextMonth = shiftMonth(month, 1);
+
   const { supabase, user } = await requireUser();
 
   const { data: space, error: spaceError } = await supabase.rpc(
@@ -158,6 +181,8 @@ export default async function IncomePage() {
     .from("income_plans")
     .select("*")
     .eq("space_id", space.id)
+    .gte("expected_date", `${month}-01`)
+    .lt("expected_date", `${nextMonth}-01`)
     .order("expected_date", { ascending: true })
     .order("created_at", { ascending: false });
 
@@ -251,7 +276,7 @@ export default async function IncomePage() {
               <input
                 name="expectedDate"
                 type="date"
-                defaultValue={todayValue()}
+                defaultValue={`${month}-01`}
                 required
                 className="w-full rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-white outline-none"
               />
@@ -276,6 +301,8 @@ export default async function IncomePage() {
         </div>
 
         <div className="space-y-6">
+          <MonthSelector month={month} basePath="/income" />
+
           <div className="grid gap-4 md:grid-cols-3">
             <article className="rounded-3xl border border-sky-300/20 bg-sky-300/10 p-5">
               <p className="text-sm text-sky-200">Esperado</p>
@@ -301,15 +328,18 @@ export default async function IncomePage() {
 
           <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-6 shadow-2xl shadow-black/20">
             <div className="mb-5">
-              <p className="text-sm text-slate-400">Lista</p>
+              <p className="text-sm text-slate-400">Lista del periodo</p>
               <h2 className="text-2xl font-semibold">Ingresos planificados</h2>
             </div>
 
             {incomes.length === 0 ? (
               <div className="rounded-3xl border border-dashed border-white/10 p-8 text-center">
-                <p className="text-lg font-semibold">Sin ingresos todavía</p>
+                <p className="text-lg font-semibold">
+                  No hay ingresos en este periodo
+                </p>
                 <p className="mt-2 text-sm text-slate-400">
-                  Crea tu primer ingreso esperado para verlo en la planeación.
+                  Cambia de mes o crea un ingreso con fecha dentro de este
+                  periodo.
                 </p>
               </div>
             ) : (
