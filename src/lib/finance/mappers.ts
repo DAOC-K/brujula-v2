@@ -9,10 +9,12 @@ import type {
   IncomePlanRow,
   MovementInsert,
   MovementRow,
+  PaymentPlanInsert,
   PaymentPlanRow,
 } from "@/types/database";
 
 import type { MovementDraft } from "./movements";
+import type { PaymentPlanDraft } from "./payments";
 
 export function movementDraftToInsert(draft: MovementDraft): MovementInsert {
   return {
@@ -29,6 +31,28 @@ export function movementDraftToInsert(draft: MovementDraft): MovementInsert {
     source_payment_plan_id: draft.sourcePaymentPlanId,
     source_income_plan_id: draft.sourceIncomePlanId,
     source_label: draft.sourceLabel,
+    notes: draft.notes,
+  };
+}
+
+export function paymentPlanDraftToInsert(
+  draft: PaymentPlanDraft,
+): PaymentPlanInsert {
+  return {
+    space_id: draft.spaceId,
+    user_id: draft.userId,
+    name: draft.name,
+    amount: draft.amount,
+    category: draft.category,
+    kind: draft.kind,
+    status: draft.status,
+    due_date: draft.dueDate,
+    paid_at: draft.paidAt,
+    postponed_to: draft.postponedTo,
+    installment_number: draft.installmentNumber,
+    installment_total: draft.installmentTotal,
+    total_amount: draft.totalAmount,
+    remaining_amount: draft.remainingAmount,
     notes: draft.notes,
   };
 }
