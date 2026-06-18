@@ -457,3 +457,71 @@ create policy monthly_snapshots_delete_owner
 on public.monthly_snapshots
 for delete
 using (user_id = auth.uid() and public.is_space_member(space_id));
+
+-- Grants necesarios para usar tablas con RLS desde clientes autenticados
+grant usage on schema public to anon, authenticated;
+
+grant select, insert, update, delete on public.profiles to authenticated;
+grant select, insert, update, delete on public.financial_spaces to authenticated;
+grant select, insert, update, delete on public.space_members to authenticated;
+grant select, insert, update, delete on public.payment_plans to authenticated;
+grant select, insert, update, delete on public.income_plans to authenticated;
+grant select, insert, update, delete on public.movements to authenticated;
+grant select, insert, update, delete on public.monthly_snapshots to authenticated;
+
+grant execute on function public.is_space_member(uuid) to authenticated;
+grant execute on function public.is_space_admin(uuid) to authenticated;
+grant execute on function public.touch_updated_at() to authenticated;
+grant execute on function public.handle_new_user() to authenticated;
+grant execute on function public.add_space_owner_member() to authenticated;
+
+-- Crea o retorna el espacio personal principal del usuario autenticado
+create or replace function public.ensure_personal_space()
+returns public.financial_spaces
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  current_user_id uuid;
+  result_space public.financial_spaces;
+begin
+  current_user_id := auth.uid();
+
+  if current_user_id is null then
+    raise exception 'Not authenticated';
+  end if;
+
+  select *
+  into result_space
+  from public.financial_spaces
+  where owner_id = current_user_id
+    and type = 'personal'
+  order by created_at asc
+  limit 1;
+
+  if result_space.id is not null then
+    return result_space;
+  end if;
+
+  insert into public.financial_spaces (
+    owner_id,
+    name,
+    type,
+    monthly_budget,
+    currency
+  )
+  values (
+    current_user_id,
+    'Personal',
+    'personal',
+    0,
+    'COP'
+  )
+  returning * into result_space;
+
+  return result_space;
+end;
+$$;
+
+grant execute on function public.ensure_personal_space() to authenticated;
