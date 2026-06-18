@@ -1,71 +1,29 @@
-﻿import type {
-  DashboardSummary,
-  IncomePlan,
-  MonthlyContext,
-  Movement,
-  PaymentPlan,
-} from "@/types/finance";
+﻿import type { DashboardSummary, MonthlyContext } from "@/types/finance";
 
 import { isSameMonth } from "./dates";
 import { sumMoney } from "./money";
 
-function clamp(value: number, min: number, max: number) {
-  return Math.min(Math.max(value, min), max);
-}
-
-function isMovementInMonth(movement: Movement, month: string) {
-  return isSameMonth(movement.occurredOn, month);
-}
-
-function isExpectedIncomeInMonth(income: IncomePlan, month: string) {
-  return income.status === "expected" && isSameMonth(income.expectedDate, month);
-}
-
-function getPaymentEffectiveDate(payment: PaymentPlan) {
-  if (payment.status === "postponed" && payment.postponedTo) {
-    return payment.postponedTo;
-  }
-
-  return payment.dueDate;
-}
-
-function isPendingPaymentInMonth(payment: PaymentPlan, month: string) {
-  const activeStatuses: PaymentPlan["status"][] = [
-    "pending",
-    "overdue",
-    "postponed",
-  ];
-
-  return (
-    activeStatuses.includes(payment.status) &&
-    isSameMonth(getPaymentEffectiveDate(payment), month)
-  );
-}
-
-function calculateHealthScore(params: {
-  incomeBase: number;
-  realExpenses: number;
-  pendingPayments: number;
-  availableEstimated: number;
-}) {
-  const { incomeBase, realExpenses, pendingPayments, availableEstimated } =
-    params;
-
+function getHealthScore(availableEstimated: number, incomeBase: number) {
   if (incomeBase <= 0) {
     return availableEstimated >= 0 ? 80 : 30;
   }
 
-  const committedRatio = (realExpenses + pendingPayments) / incomeBase;
-  const availableRatio = availableEstimated / incomeBase;
+  const ratio = availableEstimated / incomeBase;
 
-  const score = 100 - committedRatio * 70 + availableRatio * 30;
+  if (ratio >= 0.4) return 100;
+  if (ratio >= 0.25) return 90;
+  if (ratio >= 0.1) return 75;
+  if (ratio >= 0) return 60;
 
-  return Math.round(clamp(score, 0, 100));
+  return 30;
 }
 
 export function buildDashboardSummary(context: MonthlyContext): DashboardSummary {
+  const space = context.spaces[0];
+  const monthlyBudget = space?.monthlyBudget ?? 0;
+
   const monthlyMovements = context.movements.filter((movement) =>
-    isMovementInMonth(movement, context.month),
+    isSameMonth(movement.occurredOn, context.month),
   );
 
   const realIncome = sumMoney(
@@ -79,40 +37,31 @@ export function buildDashboardSummary(context: MonthlyContext): DashboardSummary
   );
 
   const expectedIncome = sumMoney(
-    context.incomePlans.filter((income) =>
-      isExpectedIncomeInMonth(income, context.month),
+    context.incomePlans.filter(
+      (income) =>
+        income.status === "expected" &&
+        isSameMonth(income.expectedDate, context.month),
     ),
     (income) => income.amount,
   );
 
   const pendingPayments = sumMoney(
-    context.paymentPlans.filter((payment) =>
-      isPendingPaymentInMonth(payment, context.month),
+    context.paymentPlans.filter(
+      (payment) =>
+        ["pending", "overdue", "postponed"].includes(payment.status) &&
+        isSameMonth(payment.dueDate, context.month),
     ),
     (payment) => payment.amount,
   );
 
-  const monthlyBudgetFallback = sumMoney(
-    context.spaces,
-    (space) => space.monthlyBudget,
-  );
+  const hasPlannedOrRealIncome = realIncome > 0 || expectedIncome > 0;
 
-  const plannedIncomeBase =
-    expectedIncome > 0 ? expectedIncome : monthlyBudgetFallback;
+  const fallbackBudget = hasPlannedOrRealIncome ? 0 : monthlyBudget;
 
-  const incomeBase = realIncome + plannedIncomeBase;
+  const incomeBase = realIncome + expectedIncome + fallbackBudget;
   const agendaImpact = pendingPayments;
   const movementBalance = realIncome - realExpenses;
-
-  const availableEstimated =
-    realIncome + plannedIncomeBase - realExpenses - pendingPayments;
-
-  const healthScore = calculateHealthScore({
-    incomeBase,
-    realExpenses,
-    pendingPayments,
-    availableEstimated,
-  });
+  const availableEstimated = incomeBase - realExpenses - pendingPayments;
 
   return {
     month: context.month,
@@ -124,6 +73,6 @@ export function buildDashboardSummary(context: MonthlyContext): DashboardSummary
     incomeBase,
     agendaImpact,
     movementBalance,
-    healthScore,
+    healthScore: getHealthScore(availableEstimated, incomeBase),
   };
 }
