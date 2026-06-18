@@ -1,5 +1,16 @@
-﻿import type { Movement } from "@/types/finance";
-import type { MovementInsert, MovementRow } from "@/types/database";
+﻿import type {
+  FinancialSpace,
+  IncomePlan,
+  Movement,
+  PaymentPlan,
+} from "@/types/finance";
+import type {
+  FinancialSpaceRow,
+  IncomePlanRow,
+  MovementInsert,
+  MovementRow,
+  PaymentPlanRow,
+} from "@/types/database";
 
 import type { MovementDraft } from "./movements";
 
@@ -38,6 +49,61 @@ export function movementRowToMovement(row: MovementRow): Movement {
     sourcePaymentPlanId: row.source_payment_plan_id,
     sourceIncomePlanId: row.source_income_plan_id,
     sourceLabel: row.source_label,
+    notes: row.notes,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+export function financialSpaceRowToFinancialSpace(
+  row: FinancialSpaceRow,
+): FinancialSpace {
+  return {
+    id: row.id,
+    userId: row.owner_id,
+    name: row.name,
+    type: row.type,
+    monthlyBudget: Number(row.monthly_budget),
+    createdAt: row.created_at,
+  };
+}
+
+export function paymentPlanRowToPaymentPlan(row: PaymentPlanRow): PaymentPlan {
+  return {
+    id: row.id,
+    spaceId: row.space_id,
+    userId: row.user_id,
+    name: row.name,
+    amount: Number(row.amount),
+    category: row.category,
+    kind: row.kind,
+    status: row.status,
+    dueDate: row.due_date,
+    paidAt: row.paid_at,
+    postponedTo: row.postponed_to,
+    installmentNumber: row.installment_number,
+    installmentTotal: row.installment_total,
+    totalAmount: row.total_amount === null ? null : Number(row.total_amount),
+    remainingAmount:
+      row.remaining_amount === null ? null : Number(row.remaining_amount),
+    notes: row.notes,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+export function incomePlanRowToIncomePlan(row: IncomePlanRow): IncomePlan {
+  return {
+    id: row.id,
+    spaceId: row.space_id,
+    userId: row.user_id,
+    name: row.name,
+    amount: Number(row.amount),
+    category: row.category,
+    kind: row.kind,
+    status: row.status,
+    expectedDate: row.expected_date,
+    receivedAt: row.received_at,
     notes: row.notes,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
