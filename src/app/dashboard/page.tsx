@@ -11,6 +11,10 @@ import {
   paymentPlanRowToPaymentPlan,
 } from "@/lib/finance/mappers";
 import { formatMoney } from "@/lib/finance/money";
+import {
+  projectIncomePlansForMonth,
+  projectPaymentPlansForMonth,
+} from "@/lib/finance/projections";
 import { requireUser } from "@/lib/supabase/auth";
 
 type DashboardPageProps = {
@@ -78,12 +82,22 @@ export default async function DashboardPage({
     throw new Error(incomePlansResponse.error.message);
   }
 
+  const paymentPlans = projectPaymentPlansForMonth(
+    (paymentPlansResponse.data ?? []).map(paymentPlanRowToPaymentPlan),
+    month,
+  );
+
+  const incomePlans = projectIncomePlansForMonth(
+    (incomePlansResponse.data ?? []).map(incomePlanRowToIncomePlan),
+    month,
+  );
+
   const summary = buildDashboardSummary({
     month,
     spaces: [financialSpaceRowToFinancialSpace(space)],
     movements: (movementsResponse.data ?? []).map(movementRowToMovement),
-    paymentPlans: (paymentPlansResponse.data ?? []).map(paymentPlanRowToPaymentPlan),
-    incomePlans: (incomePlansResponse.data ?? []).map(incomePlanRowToIncomePlan),
+    paymentPlans,
+    incomePlans,
   });
 
   return (
@@ -201,3 +215,4 @@ export default async function DashboardPage({
     </AppShell>
   );
 }
+

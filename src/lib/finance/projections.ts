@@ -1,210 +1,134 @@
 ﻿import type { IncomePlan, PaymentPlan } from "@/types/finance";
 
-import { getProjectedDateInMonth, isSameMonth } from "./dates";
+import { getProjectedDateInMonth } from "./dates";
 
-export type ProjectedPaymentPlan = PaymentPlan & {
-  isProjected: boolean;
-  projectionSourceId: string | null;
-};
-
-export type ProjectedIncomePlan = IncomePlan & {
-  isProjected: boolean;
-  projectionSourceId: string | null;
-};
-
-function getMonthValue(dateValue: string | null) {
-  if (!dateValue) {
-    return null;
-  }
-
-  return dateValue.slice(0, 7);
+function getPlanMonth(dateValue: string | null) {
+  return dateValue ? dateValue.slice(0, 7) : null;
 }
 
-function hasPlanStarted(dateValue: string | null, month: string) {
-  const startMonth = getMonthValue(dateValue);
-
-  if (!startMonth) {
-    return false;
-  }
-
-  return startMonth <= month;
+function paymentKey(payment: PaymentPlan) {
+  return [
+    payment.spaceId,
+    payment.name.trim().toLowerCase(),
+    payment.category.trim().toLowerCase(),
+    payment.amount,
+    payment.kind,
+  ].join("|");
 }
 
-function paymentMatchesProjection(
-  payment: PaymentPlan,
-  source: PaymentPlan,
-  month: string,
-) {
-  return Boolean(
-    payment.id !== source.id &&
-      payment.kind === source.kind &&
-      payment.name === source.name &&
-      payment.category === source.category &&
-      Number(payment.amount) === Number(source.amount) &&
-      payment.dueDate &&
-      isSameMonth(payment.dueDate, month),
-  );
+function incomeKey(income: IncomePlan) {
+  return [
+    income.spaceId,
+    income.name.trim().toLowerCase(),
+    income.category.trim().toLowerCase(),
+    income.amount,
+    income.kind,
+  ].join("|");
 }
 
-function incomeMatchesProjection(
-  income: IncomePlan,
-  source: IncomePlan,
-  month: string,
-) {
-  return Boolean(
-    income.id !== source.id &&
-      income.kind === source.kind &&
-      income.name === source.name &&
-      income.category === source.category &&
-      Number(income.amount) === Number(source.amount) &&
-      income.expectedDate &&
-      isSameMonth(income.expectedDate, month),
-  );
+export function isProjectedPlan(id: string) {
+  return id.startsWith("projection:");
 }
 
-function shouldProjectPayment(
-  source: PaymentPlan,
-  allPayments: PaymentPlan[],
-  month: string,
-) {
-  if (source.kind !== "recurrent") {
-    return false;
-  }
-
-  if (!source.dueDate) {
-    return false;
-  }
-
-  if (!hasPlanStarted(source.dueDate, month)) {
-    return false;
-  }
-
-  if (isSameMonth(source.dueDate, month)) {
-    return false;
-  }
-
-  const alreadyExists = allPayments.some((payment) =>
-    paymentMatchesProjection(payment, source, month),
-  );
-
-  return !alreadyExists;
-}
-
-function shouldProjectIncome(
-  source: IncomePlan,
-  allIncomes: IncomePlan[],
-  month: string,
-) {
-  if (source.kind !== "recurrent") {
-    return false;
-  }
-
-  if (!source.expectedDate) {
-    return false;
-  }
-
-  if (!hasPlanStarted(source.expectedDate, month)) {
-    return false;
-  }
-
-  if (isSameMonth(source.expectedDate, month)) {
-    return false;
-  }
-
-  const alreadyExists = allIncomes.some((income) =>
-    incomeMatchesProjection(income, source, month),
-  );
-
-  return !alreadyExists;
-}
-
-function projectPaymentForMonth(
-  payment: PaymentPlan,
-  month: string,
-): ProjectedPaymentPlan {
-  return {
-    ...payment,
-    id: `${payment.id}:projected:${month}`,
-    status: "pending",
-    dueDate: getProjectedDateInMonth(payment.dueDate, month),
-    paidAt: null,
-    postponedTo: null,
-    isProjected: true,
-    projectionSourceId: payment.id,
-  };
-}
-
-function projectIncomeForMonth(
-  income: IncomePlan,
-  month: string,
-): ProjectedIncomePlan {
-  return {
-    ...income,
-    id: `${income.id}:projected:${month}`,
-    status: "expected",
-    expectedDate: getProjectedDateInMonth(income.expectedDate, month),
-    receivedAt: null,
-    isProjected: true,
-    projectionSourceId: income.id,
-  };
-}
-
-export function buildMonthlyPaymentPlans(
+export function projectPaymentPlansForMonth(
   payments: PaymentPlan[],
   month: string,
-): ProjectedPaymentPlan[] {
-  const realPaymentsForMonth: ProjectedPaymentPlan[] = payments
-    .filter((payment) => payment.dueDate && isSameMonth(payment.dueDate, month))
-    .map((payment) => ({
+): PaymentPlan[] {
+  const concretePayments = payments.filter(
+    (payment) => getPlanMonth(payment.dueDate) === month,
+  );
+
+  const concreteKeys = new Set(concretePayments.map(paymentKey));
+  const latestSourceByKey = new Map<string, PaymentPlan>();
+
+  for (const payment of payments) {
+    if (payment.kind !== "recurrent" || !payment.dueDate) {
+      continue;
+    }
+
+    const paymentMonth = getPlanMonth(payment.dueDate);
+
+    if (!paymentMonth || paymentMonth >= month) {
+      continue;
+    }
+
+    const key = paymentKey(payment);
+
+    if (concreteKeys.has(key)) {
+      continue;
+    }
+
+    const currentLatest = latestSourceByKey.get(key);
+
+    if (!currentLatest || payment.dueDate > (currentLatest.dueDate ?? "")) {
+      latestSourceByKey.set(key, payment);
+    }
+  }
+
+  const projectedPayments = Array.from(latestSourceByKey.values()).map(
+    (payment) => ({
       ...payment,
-      isProjected: false,
-      projectionSourceId: null,
-    }));
+      id: `projection:payment:${payment.id}:${month}`,
+      status: "pending" as const,
+      dueDate: getProjectedDateInMonth(payment.dueDate, month),
+      paidAt: null,
+      postponedTo: null,
+      notes: payment.notes,
+    }),
+  );
 
-  const projectedPayments: ProjectedPaymentPlan[] = payments
-    .filter((payment) => shouldProjectPayment(payment, payments, month))
-    .map((payment) => projectPaymentForMonth(payment, month));
-
-  return [...realPaymentsForMonth, ...projectedPayments].sort((a, b) => {
-    const dateA = a.dueDate ?? "";
-    const dateB = b.dueDate ?? "";
-
-    return dateA.localeCompare(dateB);
-  });
+  return [...concretePayments, ...projectedPayments].sort((a, b) =>
+    (a.dueDate ?? "").localeCompare(b.dueDate ?? ""),
+  );
 }
 
-export function buildMonthlyIncomePlans(
+export function projectIncomePlansForMonth(
   incomes: IncomePlan[],
   month: string,
-): ProjectedIncomePlan[] {
-  const realIncomesForMonth: ProjectedIncomePlan[] = incomes
-    .filter((income) => income.expectedDate && isSameMonth(income.expectedDate, month))
-    .map((income) => ({
+): IncomePlan[] {
+  const concreteIncomes = incomes.filter(
+    (income) => getPlanMonth(income.expectedDate) === month,
+  );
+
+  const concreteKeys = new Set(concreteIncomes.map(incomeKey));
+  const latestSourceByKey = new Map<string, IncomePlan>();
+
+  for (const income of incomes) {
+    if (income.kind !== "recurrent" || !income.expectedDate) {
+      continue;
+    }
+
+    const incomeMonth = getPlanMonth(income.expectedDate);
+
+    if (!incomeMonth || incomeMonth >= month) {
+      continue;
+    }
+
+    const key = incomeKey(income);
+
+    if (concreteKeys.has(key)) {
+      continue;
+    }
+
+    const currentLatest = latestSourceByKey.get(key);
+
+    if (!currentLatest || income.expectedDate > (currentLatest.expectedDate ?? "")) {
+      latestSourceByKey.set(key, income);
+    }
+  }
+
+  const projectedIncomes = Array.from(latestSourceByKey.values()).map(
+    (income) => ({
       ...income,
-      isProjected: false,
-      projectionSourceId: null,
-    }));
+      id: `projection:income:${income.id}:${month}`,
+      status: "expected" as const,
+      expectedDate: getProjectedDateInMonth(income.expectedDate, month),
+      receivedAt: null,
+      notes: income.notes,
+    }),
+  );
 
-  const projectedIncomes: ProjectedIncomePlan[] = incomes
-    .filter((income) => shouldProjectIncome(income, incomes, month))
-    .map((income) => projectIncomeForMonth(income, month));
-
-  return [...realIncomesForMonth, ...projectedIncomes].sort((a, b) => {
-    const dateA = a.expectedDate ?? "";
-    const dateB = b.expectedDate ?? "";
-
-    return dateA.localeCompare(dateB);
-  });
-}
-
-export function isProjectedPayment(
-  payment: PaymentPlan | ProjectedPaymentPlan,
-): payment is ProjectedPaymentPlan {
-  return "isProjected" in payment && payment.isProjected;
-}
-
-export function isProjectedIncome(
-  income: IncomePlan | ProjectedIncomePlan,
-): income is ProjectedIncomePlan {
-  return "isProjected" in income && income.isProjected;
+  return [...concreteIncomes, ...projectedIncomes].sort((a, b) =>
+    (a.expectedDate ?? "").localeCompare(b.expectedDate ?? ""),
+  );
 }

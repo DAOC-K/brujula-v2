@@ -14,6 +14,10 @@ import {
 } from "@/lib/finance/mappers";
 import { formatMoney, sumMoney } from "@/lib/finance/money";
 import {
+  isProjectedPlan,
+  projectPaymentPlansForMonth,
+} from "@/lib/finance/projections";
+import {
   buildPaymentPlan,
   getPaymentDisplayStatus,
   isPaymentActive,
@@ -206,8 +210,6 @@ export default async function PaymentsPage({ searchParams }: PaymentsPageProps) 
     .from("payment_plans")
     .select("*")
     .eq("space_id", space.id)
-    .gte("due_date", `${month}-01`)
-    .lt("due_date", `${nextMonth}-01`)
     .order("due_date", { ascending: true })
     .order("created_at", { ascending: false });
 
@@ -215,7 +217,10 @@ export default async function PaymentsPage({ searchParams }: PaymentsPageProps) 
     throw new Error(paymentsError.message);
   }
 
-  const payments = (paymentRows ?? []).map(paymentPlanRowToPaymentPlan);
+  const payments = projectPaymentPlansForMonth(
+    (paymentRows ?? []).map(paymentPlanRowToPaymentPlan),
+    month,
+  );
 
   const activePayments = payments.filter(isPaymentActive);
   const paidPayments = payments.filter((payment) => payment.status === "paid");
@@ -385,8 +390,9 @@ export default async function PaymentsPage({ searchParams }: PaymentsPageProps) 
             ) : (
               <div className="space-y-3">
                 {payments.map((payment) => {
-                  const canMarkPaid = isPaymentActive(payment);
-                  const canDelete = payment.status !== "paid";
+                  const isProjected = isProjectedPlan(payment.id);
+                  const canMarkPaid = isPaymentActive(payment) && !isProjected;
+                  const canDelete = payment.status !== "paid" && !isProjected;
 
                   return (
                     <article
@@ -407,7 +413,9 @@ export default async function PaymentsPage({ searchParams }: PaymentsPageProps) 
                                 : "Único"}
                           </p>
                           <p className="mt-2 text-xs font-semibold text-amber-200">
-                            {getPaymentDisplayStatus(payment)}
+                            {isProjected
+                              ? "Programado recurrente"
+                              : getPaymentDisplayStatus(payment)}
                           </p>
                           {payment.notes ? (
                             <p className="mt-2 text-sm text-slate-500">
@@ -459,3 +467,4 @@ export default async function PaymentsPage({ searchParams }: PaymentsPageProps) 
     </AppShell>
   );
 }
+

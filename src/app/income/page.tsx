@@ -14,6 +14,10 @@ import {
 } from "@/lib/finance/mappers";
 import { formatMoney, sumMoney } from "@/lib/finance/money";
 import {
+  isProjectedPlan,
+  projectIncomePlansForMonth,
+} from "@/lib/finance/projections";
+import {
   buildIncomePlan,
   getIncomeDisplayStatus,
   isIncomeExpected,
@@ -181,8 +185,6 @@ export default async function IncomePage({ searchParams }: IncomePageProps) {
     .from("income_plans")
     .select("*")
     .eq("space_id", space.id)
-    .gte("expected_date", `${month}-01`)
-    .lt("expected_date", `${nextMonth}-01`)
     .order("expected_date", { ascending: true })
     .order("created_at", { ascending: false });
 
@@ -190,7 +192,10 @@ export default async function IncomePage({ searchParams }: IncomePageProps) {
     throw new Error(incomesError.message);
   }
 
-  const incomes = (incomeRows ?? []).map(incomePlanRowToIncomePlan);
+  const incomes = projectIncomePlansForMonth(
+    (incomeRows ?? []).map(incomePlanRowToIncomePlan),
+    month,
+  );
 
   const expectedIncomes = incomes.filter((income) => income.status === "expected");
   const receivedIncomes = incomes.filter((income) => income.status === "received");
@@ -345,8 +350,9 @@ export default async function IncomePage({ searchParams }: IncomePageProps) {
             ) : (
               <div className="space-y-3">
                 {incomes.map((income) => {
-                  const canMarkReceived = isIncomeExpected(income);
-                  const canDelete = income.status !== "received";
+                  const isProjected = isProjectedPlan(income.id);
+                  const canMarkReceived = isIncomeExpected(income) && !isProjected;
+                  const canDelete = income.status !== "received" && !isProjected;
 
                   return (
                     <article
@@ -366,7 +372,9 @@ export default async function IncomePage({ searchParams }: IncomePageProps) {
                                 : "Único"}
                           </p>
                           <p className="mt-2 text-xs font-semibold text-sky-200">
-                            {getIncomeDisplayStatus(income)}
+                            {isProjected
+                              ? "Programado recurrente"
+                              : getIncomeDisplayStatus(income)}
                           </p>
 
                           {income.notes ? (
@@ -419,3 +427,4 @@ export default async function IncomePage({ searchParams }: IncomePageProps) {
     </AppShell>
   );
 }
+
