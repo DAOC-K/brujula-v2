@@ -6,6 +6,13 @@
   | { [key: string]: Json | undefined }
   | Json[];
 
+type TableDefinition<Row, Insert, Update> = {
+  Row: Row;
+  Insert: Insert;
+  Update: Update;
+  Relationships: [];
+};
+
 export type ProfileRow = {
   id: string;
   email: string | null;
@@ -107,19 +114,10 @@ export type MonthlySnapshotRow = {
   updated_at: string;
 };
 
-export type MovementInsert = Omit<
-  MovementRow,
-  "id" | "created_at" | "updated_at"
->;
+export type ProfileInsert = Omit<ProfileRow, "created_at" | "updated_at">;
 
-export type PaymentPlanInsert = Omit<
-  PaymentPlanRow,
-  "id" | "created_at" | "updated_at"
->;
-
-export type IncomePlanInsert = Omit<
-  IncomePlanRow,
-  "id" | "created_at" | "updated_at"
+export type ProfileUpdate = Partial<
+  Omit<ProfileRow, "id" | "created_at" | "updated_at">
 >;
 
 export type FinancialSpaceInsert = Omit<
@@ -127,54 +125,72 @@ export type FinancialSpaceInsert = Omit<
   "id" | "created_at" | "updated_at"
 >;
 
+export type FinancialSpaceUpdate = Partial<FinancialSpaceInsert>;
+
+export type SpaceMemberInsert = Omit<SpaceMemberRow, "id" | "created_at">;
+
+export type SpaceMemberUpdate = Partial<
+  Omit<SpaceMemberRow, "id" | "created_at">
+>;
+
+export type MovementInsert = Omit<
+  MovementRow,
+  "id" | "created_at" | "updated_at"
+>;
+
 export type MovementUpdate = Partial<MovementInsert>;
+
+export type PaymentPlanInsert = Omit<
+  PaymentPlanRow,
+  "id" | "created_at" | "updated_at"
+>;
 
 export type PaymentPlanUpdate = Partial<PaymentPlanInsert>;
 
+export type IncomePlanInsert = Omit<
+  IncomePlanRow,
+  "id" | "created_at" | "updated_at"
+>;
+
 export type IncomePlanUpdate = Partial<IncomePlanInsert>;
 
-export type FinancialSpaceUpdate = Partial<FinancialSpaceInsert>;
+export type MonthlySnapshotInsert = Omit<
+  MonthlySnapshotRow,
+  "id" | "created_at" | "updated_at"
+>;
+
+export type MonthlySnapshotUpdate = Partial<MonthlySnapshotInsert>;
 
 export type Database = {
   public: {
     Tables: {
-      profiles: {
-        Row: ProfileRow;
-        Insert: Omit<ProfileRow, "created_at" | "updated_at">;
-        Update: Partial<Omit<ProfileRow, "id" | "created_at" | "updated_at">>;
-      };
-      financial_spaces: {
-        Row: FinancialSpaceRow;
-        Insert: FinancialSpaceInsert;
-        Update: FinancialSpaceUpdate;
-      };
-      space_members: {
-        Row: SpaceMemberRow;
-        Insert: Omit<SpaceMemberRow, "id" | "created_at">;
-        Update: Partial<Omit<SpaceMemberRow, "id" | "created_at">>;
-      };
-      movements: {
-        Row: MovementRow;
-        Insert: MovementInsert;
-        Update: MovementUpdate;
-      };
-      payment_plans: {
-        Row: PaymentPlanRow;
-        Insert: PaymentPlanInsert;
-        Update: PaymentPlanUpdate;
-      };
-      income_plans: {
-        Row: IncomePlanRow;
-        Insert: IncomePlanInsert;
-        Update: IncomePlanUpdate;
-      };
-      monthly_snapshots: {
-        Row: MonthlySnapshotRow;
-        Insert: Omit<MonthlySnapshotRow, "id" | "created_at" | "updated_at">;
-        Update: Partial<
-          Omit<MonthlySnapshotRow, "id" | "created_at" | "updated_at">
-        >;
-      };
+      profiles: TableDefinition<ProfileRow, ProfileInsert, ProfileUpdate>;
+      financial_spaces: TableDefinition<
+        FinancialSpaceRow,
+        FinancialSpaceInsert,
+        FinancialSpaceUpdate
+      >;
+      space_members: TableDefinition<
+        SpaceMemberRow,
+        SpaceMemberInsert,
+        SpaceMemberUpdate
+      >;
+      movements: TableDefinition<MovementRow, MovementInsert, MovementUpdate>;
+      payment_plans: TableDefinition<
+        PaymentPlanRow,
+        PaymentPlanInsert,
+        PaymentPlanUpdate
+      >;
+      income_plans: TableDefinition<
+        IncomePlanRow,
+        IncomePlanInsert,
+        IncomePlanUpdate
+      >;
+      monthly_snapshots: TableDefinition<
+        MonthlySnapshotRow,
+        MonthlySnapshotInsert,
+        MonthlySnapshotUpdate
+      >;
     };
     Views: Record<string, never>;
     Functions: Record<string, never>;
