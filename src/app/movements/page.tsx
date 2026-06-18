@@ -1,10 +1,61 @@
-﻿import { AppShell } from "@/components/layout/app-shell";
-import { getMovementDisplaySource } from "@/lib/finance/movements";
-import { movementRowToMovement } from "@/lib/finance/mappers";
+﻿import { revalidatePath } from "next/cache";
+
+import { AppShell } from "@/components/layout/app-shell";
+import { ManualMovementDialog } from "@/components/finance/manual-movement-dialog";
+import { todayValue } from "@/lib/finance/dates";
+import { movementDraftToInsert, movementRowToMovement } from "@/lib/finance/mappers";
 import { formatMoney, sumMoney } from "@/lib/finance/money";
+import {
+  buildManualMovement,
+  getMovementDisplaySource,
+} from "@/lib/finance/movements";
 import { requireUser } from "@/lib/supabase/auth";
 
 export const dynamic = "force-dynamic";
+
+async function createManualMovementAction(formData: FormData) {
+  "use server";
+
+  const { supabase, user } = await requireUser();
+
+  const { data: space, error: spaceError } = await supabase.rpc(
+    "ensure_personal_space",
+  );
+
+  if (spaceError) {
+    throw new Error(spaceError.message);
+  }
+
+  if (!space) {
+    throw new Error("No se encontró un espacio financiero.");
+  }
+
+  const notesValue = String(formData.get("notes") ?? "").trim();
+
+  const movementDraft = buildManualMovement({
+    spaceId: space.id,
+    userId: user.id,
+    type: "expense",
+    name: String(formData.get("name") ?? ""),
+    amount: Number(formData.get("amount") ?? 0),
+    category: String(formData.get("category") ?? ""),
+    occurredOn: String(formData.get("occurredOn") ?? todayValue()),
+    isFixed: false,
+    visibility: "private",
+    notes: notesValue ? notesValue : null,
+  });
+
+  const { error } = await supabase
+    .from("movements")
+    .insert(movementDraftToInsert(movementDraft));
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  revalidatePath("/movements");
+  revalidatePath("/dashboard");
+}
 
 export default async function MovementsPage() {
   const { supabase, user } = await requireUser();
@@ -60,17 +111,12 @@ export default async function MovementsPage() {
             <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-300">
               Aquí se ve la realidad de tu dinero: ingresos recibidos, gastos
               reales, pagos confirmados desde Agenda y entradas confirmadas
-              desde Ingresos esperados.
+              desde Ingresos esperados. Aquí solo se registran manualmente
+              gastos sueltos o no planificados.
             </p>
           </div>
 
-          <button
-            type="button"
-            disabled
-            className="rounded-2xl border border-white/10 bg-white/[0.04] px-5 py-3 text-sm font-semibold text-slate-400"
-          >
-            + Registrar manual
-          </button>
+          <ManualMovementDialog action={createManualMovementAction} />
         </div>
 
         <div className="mb-6 grid gap-4 md:grid-cols-3">
@@ -165,3 +211,4 @@ export default async function MovementsPage() {
     </AppShell>
   );
 }
+
