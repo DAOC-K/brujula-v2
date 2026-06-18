@@ -3,21 +3,30 @@ import { createServerClient } from "@supabase/ssr";
 
 import type { Database } from "@/types/database";
 
+function getSupabasePublicKey() {
+  return (
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ??
+    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
+  );
+}
+
 export async function createSupabaseServerClient() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  const supabasePublicKey = getSupabasePublicKey();
 
   if (!supabaseUrl) {
     throw new Error("Falta NEXT_PUBLIC_SUPABASE_URL en .env.local");
   }
 
-  if (!supabaseAnonKey) {
-    throw new Error("Falta NEXT_PUBLIC_SUPABASE_ANON_KEY en .env.local");
+  if (!supabasePublicKey) {
+    throw new Error(
+      "Falta NEXT_PUBLIC_SUPABASE_ANON_KEY o NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY en .env.local",
+    );
   }
 
   const cookieStore = await cookies();
 
-  return createServerClient<Database>(supabaseUrl, supabaseAnonKey, {
+  return createServerClient<Database>(supabaseUrl, supabasePublicKey, {
     cookies: {
       getAll() {
         return cookieStore.getAll();
@@ -28,8 +37,7 @@ export async function createSupabaseServerClient() {
             cookieStore.set(name, value, options);
           });
         } catch {
-          // Esto puede pasar en Server Components.
-          // La sesión se refrescará desde middleware o acciones del servidor.
+          // Puede pasar en Server Components.
         }
       },
     },
