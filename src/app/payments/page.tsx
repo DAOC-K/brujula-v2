@@ -1,7 +1,12 @@
 ﻿import { revalidatePath } from "next/cache";
 
+import { MonthSelector } from "@/components/finance/month-selector";
 import { AppShell } from "@/components/layout/app-shell";
-import { todayValue } from "@/lib/finance/dates";
+import {
+  currentMonthValue,
+  shiftMonth,
+  todayValue,
+} from "@/lib/finance/dates";
 import {
   movementDraftToInsert,
   paymentPlanDraftToInsert,
@@ -17,6 +22,20 @@ import {
 import { requireUser } from "@/lib/supabase/auth";
 
 export const dynamic = "force-dynamic";
+
+type PaymentsPageProps = {
+  searchParams?: Promise<{
+    month?: string;
+  }>;
+};
+
+function resolveMonth(month?: string) {
+  if (!month || !/^\d{4}-\d{2}$/.test(month)) {
+    return currentMonthValue();
+  }
+
+  return month;
+}
 
 async function createPaymentPlanAction(formData: FormData) {
   "use server";
@@ -164,7 +183,11 @@ async function deletePendingPaymentAction(formData: FormData) {
   revalidatePath("/dashboard");
 }
 
-export default async function PaymentsPage() {
+export default async function PaymentsPage({ searchParams }: PaymentsPageProps) {
+  const params = await searchParams;
+  const month = resolveMonth(params?.month);
+  const nextMonth = shiftMonth(month, 1);
+
   const { supabase, user } = await requireUser();
 
   const { data: space, error: spaceError } = await supabase.rpc(
@@ -183,6 +206,8 @@ export default async function PaymentsPage() {
     .from("payment_plans")
     .select("*")
     .eq("space_id", space.id)
+    .gte("due_date", `${month}-01`)
+    .lt("due_date", `${nextMonth}-01`)
     .order("due_date", { ascending: true })
     .order("created_at", { ascending: false });
 
@@ -317,6 +342,8 @@ export default async function PaymentsPage() {
         </div>
 
         <div className="space-y-6">
+          <MonthSelector month={month} basePath="/payments" />
+
           <div className="grid gap-4 md:grid-cols-3">
             <article className="rounded-3xl border border-amber-300/20 bg-amber-300/10 p-5">
               <p className="text-sm text-amber-200">Pendiente</p>
@@ -342,15 +369,17 @@ export default async function PaymentsPage() {
 
           <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-6 shadow-2xl shadow-black/20">
             <div className="mb-5">
-              <p className="text-sm text-slate-400">Lista</p>
+              <p className="text-sm text-slate-400">Lista del periodo</p>
               <h2 className="text-2xl font-semibold">Pagos planificados</h2>
             </div>
 
             {payments.length === 0 ? (
               <div className="rounded-3xl border border-dashed border-white/10 p-8 text-center">
-                <p className="text-lg font-semibold">Sin pagos todavía</p>
+                <p className="text-lg font-semibold">
+                  No hay pagos en este periodo
+                </p>
                 <p className="mt-2 text-sm text-slate-400">
-                  Crea tu primer pago para verlo en la agenda.
+                  Cambia de mes o crea un pago con fecha dentro de este periodo.
                 </p>
               </div>
             ) : (
