@@ -6,6 +6,7 @@
 } from "@/types/finance";
 import type {
   FinancialSpaceRow,
+  IncomePlanInsert,
   IncomePlanRow,
   MovementInsert,
   MovementRow,
@@ -13,6 +14,7 @@ import type {
   PaymentPlanRow,
 } from "@/types/database";
 
+import type { IncomePlanDraft } from "./incomes";
 import type { MovementDraft } from "./movements";
 import type { PaymentPlanDraft } from "./payments";
 
@@ -53,6 +55,23 @@ export function paymentPlanDraftToInsert(
     installment_total: draft.installmentTotal,
     total_amount: draft.totalAmount,
     remaining_amount: draft.remainingAmount,
+    notes: draft.notes,
+  };
+}
+
+export function incomePlanDraftToInsert(
+  draft: IncomePlanDraft,
+): IncomePlanInsert {
+  return {
+    space_id: draft.spaceId,
+    user_id: draft.userId,
+    name: draft.name,
+    amount: draft.amount,
+    category: draft.category,
+    kind: draft.kind,
+    status: draft.status,
+    expected_date: draft.expectedDate,
+    received_at: draft.receivedAt,
     notes: draft.notes,
   };
 }
