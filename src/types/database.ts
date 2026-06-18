@@ -193,8 +193,14 @@ export type Database = {
       >;
     };
     Views: Record<string, never>;
-    Functions: Record<string, never>;
+    Functions: {
+      ensure_personal_space: {
+        Args: Record<string, never>;
+        Returns: FinancialSpaceRow;
+      };
+    };
     Enums: Record<string, never>;
     CompositeTypes: Record<string, never>;
   };
 };
+

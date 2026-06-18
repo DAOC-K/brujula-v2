@@ -37,17 +37,9 @@ export default async function DashboardPage() {
   let spaces = existingSpaces ?? [];
 
   if (spaces.length === 0) {
-    const { data: createdSpace, error: createSpaceError } = await supabase
-      .from("financial_spaces")
-      .insert({
-        owner_id: user.id,
-        name: "Personal",
-        type: "personal",
-        monthly_budget: 0,
-        currency: "COP",
-      })
-      .select("*")
-      .single();
+    const { data: createdSpace, error: createSpaceError } = await supabase.rpc(
+      "ensure_personal_space",
+    );
 
     if (createSpaceError) {
       throw new Error(createSpaceError.message);
@@ -116,4 +108,5 @@ export default async function DashboardPage() {
     </main>
   );
 }
+
 
