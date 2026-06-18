@@ -4,6 +4,7 @@ import { MonthSelector } from "@/components/finance/month-selector";
 import { AppShell } from "@/components/layout/app-shell";
 import {
   currentMonthValue,
+  getProjectedDateInMonth,
   shiftMonth,
   todayValue,
 } from "@/lib/finance/dates";
@@ -15,6 +16,7 @@ import {
 import { formatMoney, sumMoney } from "@/lib/finance/money";
 import {
   isProjectedPlan,
+  parseProjectedPlanId,
   projectPaymentPlansForMonth,
 } from "@/lib/finance/projections";
 import {
@@ -111,6 +113,79 @@ async function markPaymentAsPaidAction(formData: FormData) {
 
   if (!paymentId) {
     throw new Error("No se recibió el pago a confirmar.");
+  }
+
+  const projected = parseProjectedPlanId(paymentId);
+
+  if (projected?.planType === "payment") {
+    const { data: sourcePaymentRow, error: sourcePaymentError } = await supabase
+      .from("payment_plans")
+      .select("*")
+      .eq("id", projected.sourceId)
+      .single();
+
+    if (sourcePaymentError) {
+      throw new Error(sourcePaymentError.message);
+    }
+
+    const sourcePayment = paymentPlanRowToPaymentPlan(sourcePaymentRow);
+    const paidAt = new Date().toISOString();
+    const projectedDueDate = getProjectedDateInMonth(
+      sourcePayment.dueDate,
+      projected.month,
+    );
+
+    const { data: createdPaymentRow, error: createPaymentError } = await supabase
+      .from("payment_plans")
+      .insert({
+        space_id: sourcePayment.spaceId,
+        user_id: sourcePayment.userId,
+        name: sourcePayment.name,
+        amount: sourcePayment.amount,
+        category: sourcePayment.category,
+        kind: sourcePayment.kind,
+        status: "paid",
+        due_date: projectedDueDate,
+        paid_at: paidAt,
+        postponed_to: null,
+        installment_number: sourcePayment.installmentNumber,
+        installment_total: sourcePayment.installmentTotal,
+        total_amount: sourcePayment.totalAmount,
+        remaining_amount: sourcePayment.remainingAmount,
+        notes: sourcePayment.notes,
+      })
+      .select("*")
+      .single();
+
+    if (createPaymentError) {
+      throw new Error(createPaymentError.message);
+    }
+
+    const { error: movementError } = await supabase.from("movements").insert({
+      space_id: createdPaymentRow.space_id,
+      user_id: createdPaymentRow.user_id,
+      type: "expense",
+      name: createdPaymentRow.name,
+      amount: Number(createdPaymentRow.amount),
+      category: createdPaymentRow.category,
+      occurred_on: projectedDueDate,
+      is_fixed: createdPaymentRow.kind === "recurrent",
+      visibility: "private",
+      source_type: "payment_plan",
+      source_payment_plan_id: createdPaymentRow.id,
+      source_income_plan_id: null,
+      source_label: "Desde Agenda",
+      notes: createdPaymentRow.notes,
+    });
+
+    if (movementError) {
+      throw new Error(movementError.message);
+    }
+
+    revalidatePath("/payments");
+    revalidatePath("/movements");
+    revalidatePath("/dashboard");
+    return;
   }
 
   const { data: paymentRow, error: paymentError } = await supabase
@@ -391,7 +466,7 @@ export default async function PaymentsPage({ searchParams }: PaymentsPageProps) 
               <div className="space-y-3">
                 {payments.map((payment) => {
                   const isProjected = isProjectedPlan(payment.id);
-                  const canMarkPaid = isPaymentActive(payment) && !isProjected;
+                  const canMarkPaid = isPaymentActive(payment);
                   const canDelete = payment.status !== "paid" && !isProjected;
 
                   return (
@@ -467,4 +542,5 @@ export default async function PaymentsPage({ searchParams }: PaymentsPageProps) 
     </AppShell>
   );
 }
+
 

@@ -4,6 +4,7 @@ import { MonthSelector } from "@/components/finance/month-selector";
 import { AppShell } from "@/components/layout/app-shell";
 import {
   currentMonthValue,
+  getProjectedDateInMonth,
   shiftMonth,
   todayValue,
 } from "@/lib/finance/dates";
@@ -15,6 +16,7 @@ import {
 import { formatMoney, sumMoney } from "@/lib/finance/money";
 import {
   isProjectedPlan,
+  parseProjectedPlanId,
   projectIncomePlansForMonth,
 } from "@/lib/finance/projections";
 import {
@@ -97,6 +99,74 @@ async function markIncomeAsReceivedAction(formData: FormData) {
 
   if (!incomeId) {
     throw new Error("No se recibió el ingreso a confirmar.");
+  }
+
+  const projected = parseProjectedPlanId(incomeId);
+
+  if (projected?.planType === "income") {
+    const { data: sourceIncomeRow, error: sourceIncomeError } = await supabase
+      .from("income_plans")
+      .select("*")
+      .eq("id", projected.sourceId)
+      .single();
+
+    if (sourceIncomeError) {
+      throw new Error(sourceIncomeError.message);
+    }
+
+    const sourceIncome = incomePlanRowToIncomePlan(sourceIncomeRow);
+    const receivedAt = new Date().toISOString();
+    const projectedExpectedDate = getProjectedDateInMonth(
+      sourceIncome.expectedDate,
+      projected.month,
+    );
+
+    const { data: createdIncomeRow, error: createIncomeError } = await supabase
+      .from("income_plans")
+      .insert({
+        space_id: sourceIncome.spaceId,
+        user_id: sourceIncome.userId,
+        name: sourceIncome.name,
+        amount: sourceIncome.amount,
+        category: sourceIncome.category,
+        kind: sourceIncome.kind,
+        status: "received",
+        expected_date: projectedExpectedDate,
+        received_at: receivedAt,
+        notes: sourceIncome.notes,
+      })
+      .select("*")
+      .single();
+
+    if (createIncomeError) {
+      throw new Error(createIncomeError.message);
+    }
+
+    const { error: movementError } = await supabase.from("movements").insert({
+      space_id: createdIncomeRow.space_id,
+      user_id: createdIncomeRow.user_id,
+      type: "income",
+      name: createdIncomeRow.name,
+      amount: Number(createdIncomeRow.amount),
+      category: createdIncomeRow.category,
+      occurred_on: projectedExpectedDate,
+      is_fixed: createdIncomeRow.kind === "recurrent",
+      visibility: "private",
+      source_type: "income_plan",
+      source_payment_plan_id: null,
+      source_income_plan_id: createdIncomeRow.id,
+      source_label: "Desde Ingresos",
+      notes: createdIncomeRow.notes,
+    });
+
+    if (movementError) {
+      throw new Error(movementError.message);
+    }
+
+    revalidatePath("/income");
+    revalidatePath("/movements");
+    revalidatePath("/dashboard");
+    return;
   }
 
   const { data: incomeRow, error: incomeError } = await supabase
@@ -351,7 +421,7 @@ export default async function IncomePage({ searchParams }: IncomePageProps) {
               <div className="space-y-3">
                 {incomes.map((income) => {
                   const isProjected = isProjectedPlan(income.id);
-                  const canMarkReceived = isIncomeExpected(income) && !isProjected;
+                  const canMarkReceived = isIncomeExpected(income);
                   const canDelete = income.status !== "received" && !isProjected;
 
                   return (
@@ -427,4 +497,5 @@ export default async function IncomePage({ searchParams }: IncomePageProps) {
     </AppShell>
   );
 }
+
 

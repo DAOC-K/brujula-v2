@@ -132,3 +132,17 @@ export function projectIncomePlansForMonth(
     (a.expectedDate ?? "").localeCompare(b.expectedDate ?? ""),
   );
 }
+
+export function parseProjectedPlanId(id: string) {
+  const [prefix, planType, sourceId, month] = id.split(":");
+
+  if (prefix !== "projection" || !planType || !sourceId || !month) {
+    return null;
+  }
+
+  return {
+    planType,
+    sourceId,
+    month,
+  };
+}
