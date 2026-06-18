@@ -1,29 +1,11 @@
 ﻿export const dynamic = "force-dynamic";
 
-import { redirect } from "next/navigation";
-
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { AppShell } from "@/components/layout/app-shell";
 import { formatMoney } from "@/lib/finance/money";
-
-async function signOutAction() {
-  "use server";
-
-  const supabase = await createSupabaseServerClient();
-  await supabase.auth.signOut();
-
-  redirect("/login");
-}
+import { requireUser } from "@/lib/supabase/auth";
 
 export default async function DashboardPage() {
-  const supabase = await createSupabaseServerClient();
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    redirect("/login");
-  }
+  const { supabase, user } = await requireUser();
 
   const { data: existingSpaces, error: spacesError } = await supabase
     .from("financial_spaces")
@@ -45,38 +27,39 @@ export default async function DashboardPage() {
       throw new Error(createSpaceError.message);
     }
 
+    if (!createdSpace) {
+      throw new Error("No se pudo crear el espacio financiero personal.");
+    }
+
     spaces = [createdSpace];
   }
 
   const primarySpace = spaces[0];
 
-  return (
-    <main className="min-h-screen bg-[#050816] px-6 py-8 text-white">
-      <section className="mx-auto max-w-5xl">
-        <header className="mb-8 flex items-start justify-between gap-4">
-          <div>
-            <p className="mb-2 text-sm font-medium text-emerald-300">
-              Brújula V2
-            </p>
-            <h1 className="text-3xl font-semibold tracking-tight">
-              Inicio financiero
-            </h1>
-            <p className="mt-2 text-sm text-slate-300">
-              Sesión activa: {user.email}
-            </p>
-          </div>
+  if (!primarySpace) {
+    throw new Error("No se encontró un espacio financiero activo.");
+  }
 
-          <form action={signOutAction}>
-            <button className="rounded-2xl border border-white/10 px-4 py-2 text-sm text-slate-200 transition hover:bg-white/10">
-              Cerrar sesión
-            </button>
-          </form>
-        </header>
+  return (
+    <AppShell active="dashboard" userEmail={user.email}>
+      <section className="mx-auto max-w-5xl">
+        <div className="mb-8">
+          <p className="mb-3 text-xs font-bold uppercase tracking-[0.35em] text-emerald-300">
+            Brújula V2
+          </p>
+          <h1 className="text-4xl font-semibold tracking-tight">
+            Inicio financiero
+          </h1>
+          <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-300">
+            Tu centro de control para movimientos reales, ingresos esperados,
+            agenda de pagos y disponible estimado.
+          </p>
+        </div>
 
         <div className="grid gap-4 md:grid-cols-3">
-          <article className="rounded-3xl border border-white/10 bg-white/[0.04] p-5">
+          <article className="rounded-3xl border border-white/10 bg-white/[0.04] p-5 shadow-2xl shadow-black/20">
             <p className="text-sm text-slate-400">Espacio principal</p>
-            <h2 className="mt-2 text-2xl font-semibold">
+            <h2 className="mt-3 text-2xl font-semibold">
               {primarySpace.name}
             </h2>
             <p className="mt-2 text-sm text-slate-300">
@@ -84,9 +67,9 @@ export default async function DashboardPage() {
             </p>
           </article>
 
-          <article className="rounded-3xl border border-white/10 bg-white/[0.04] p-5">
+          <article className="rounded-3xl border border-white/10 bg-white/[0.04] p-5 shadow-2xl shadow-black/20">
             <p className="text-sm text-slate-400">Presupuesto mensual</p>
-            <h2 className="mt-2 text-2xl font-semibold">
+            <h2 className="mt-3 text-2xl font-semibold">
               {formatMoney(Number(primarySpace.monthly_budget))}
             </h2>
             <p className="mt-2 text-sm text-slate-300">
@@ -94,9 +77,9 @@ export default async function DashboardPage() {
             </p>
           </article>
 
-          <article className="rounded-3xl border border-emerald-300/20 bg-emerald-300/10 p-5">
+          <article className="rounded-3xl border border-emerald-300/20 bg-emerald-300/10 p-5 shadow-2xl shadow-emerald-950/20">
             <p className="text-sm text-emerald-200">Estado</p>
-            <h2 className="mt-2 text-2xl font-semibold text-emerald-100">
+            <h2 className="mt-3 text-2xl font-semibold text-emerald-100">
               Base lista
             </h2>
             <p className="mt-2 text-sm text-emerald-100/80">
@@ -105,8 +88,6 @@ export default async function DashboardPage() {
           </article>
         </div>
       </section>
-    </main>
+    </AppShell>
   );
 }
-
-
