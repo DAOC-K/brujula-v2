@@ -2,8 +2,9 @@
 
 import { DeleteManualMovementButton } from "@/components/finance/delete-manual-movement-button";
 import { ManualMovementDialog } from "@/components/finance/manual-movement-dialog";
+import { MonthSelector } from "@/components/finance/month-selector";
 import { AppShell } from "@/components/layout/app-shell";
-import { todayValue } from "@/lib/finance/dates";
+import { currentMonthValue, shiftMonth, todayValue } from "@/lib/finance/dates";
 import {
   movementDraftToInsert,
   movementRowToMovement,
@@ -16,6 +17,20 @@ import {
 import { requireUser } from "@/lib/supabase/auth";
 
 export const dynamic = "force-dynamic";
+
+type MovementsPageProps = {
+  searchParams?: Promise<{
+    month?: string;
+  }>;
+};
+
+function resolveMonth(month?: string) {
+  if (!month || !/^\d{4}-\d{2}$/.test(month)) {
+    return currentMonthValue();
+  }
+
+  return month;
+}
 
 async function createManualMovementAction(formData: FormData) {
   "use server";
@@ -86,7 +101,13 @@ async function deleteManualMovementAction(formData: FormData) {
   revalidatePath("/dashboard");
 }
 
-export default async function MovementsPage() {
+export default async function MovementsPage({
+  searchParams,
+}: MovementsPageProps) {
+  const params = await searchParams;
+  const month = resolveMonth(params?.month);
+  const nextMonth = shiftMonth(month, 1);
+
   const { supabase, user } = await requireUser();
 
   const { data: space, error: spaceError } = await supabase.rpc(
@@ -105,6 +126,8 @@ export default async function MovementsPage() {
     .from("movements")
     .select("*")
     .eq("space_id", space.id)
+    .gte("occurred_on", `${month}-01`)
+    .lt("occurred_on", `${nextMonth}-01`)
     .order("occurred_on", { ascending: false })
     .order("created_at", { ascending: false });
 
@@ -138,14 +161,17 @@ export default async function MovementsPage() {
               Movimientos
             </h1>
             <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-300">
-              Aquí se ve la realidad de tu dinero: ingresos recibidos, gastos
-              reales, pagos confirmados desde Agenda y entradas confirmadas
-              desde Ingresos esperados. Aquí solo se registran manualmente
-              gastos sueltos o no planificados.
+              Aquí se ve la realidad de tu dinero por periodo: ingresos
+              recibidos, gastos reales, pagos confirmados desde Agenda y
+              entradas confirmadas desde Ingresos esperados.
             </p>
           </div>
 
           <ManualMovementDialog action={createManualMovementAction} />
+        </div>
+
+        <div className="mb-6">
+          <MonthSelector month={month} basePath="/movements" />
         </div>
 
         <div className="mb-6 grid gap-4 md:grid-cols-3">
@@ -178,7 +204,7 @@ export default async function MovementsPage() {
         <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-6 shadow-2xl shadow-black/20">
           <div className="mb-5 flex items-center justify-between gap-4">
             <div>
-              <p className="text-sm text-slate-400">Historial</p>
+              <p className="text-sm text-slate-400">Historial del periodo</p>
               <h2 className="text-2xl font-semibold">Movimientos reales</h2>
             </div>
             <span className="rounded-full border border-white/10 px-3 py-1 text-xs text-slate-300">
@@ -189,12 +215,11 @@ export default async function MovementsPage() {
           {movements.length === 0 ? (
             <div className="rounded-3xl border border-dashed border-white/10 p-8 text-center">
               <p className="text-lg font-semibold">
-                Todavía no hay movimientos reales
+                No hay movimientos en este periodo
               </p>
               <p className="mt-2 text-sm leading-6 text-slate-400">
-                Cuando confirmes pagos desde Agenda, ingresos desde Ingresos
-                esperados o registres movimientos manuales reales, aparecerán
-                aquí como tu historial financiero.
+                Cambia de mes o registra un gasto manual real si corresponde a
+                este periodo.
               </p>
             </div>
           ) : (
