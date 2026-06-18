@@ -1,6 +1,7 @@
 ﻿import { revalidatePath } from "next/cache";
 
 import { MonthSelector } from "@/components/finance/month-selector";
+import { PaymentPlanDialog } from "@/components/finance/payment-plan-dialog";
 import { AppShell } from "@/components/layout/app-shell";
 import {
   currentMonthValue,
@@ -15,16 +16,16 @@ import {
 } from "@/lib/finance/mappers";
 import { formatMoney, sumMoney } from "@/lib/finance/money";
 import {
-  isProjectedPlan,
-  parseProjectedPlanId,
-  projectPaymentPlansForMonth,
-} from "@/lib/finance/projections";
-import {
   buildPaymentPlan,
   getPaymentDisplayStatus,
   isPaymentActive,
   markPaymentPlanAsPaid,
 } from "@/lib/finance/payments";
+import {
+  isProjectedPlan,
+  parseProjectedPlanId,
+  projectPaymentPlansForMonth,
+} from "@/lib/finance/projections";
 import { requireUser } from "@/lib/supabase/auth";
 
 export const dynamic = "force-dynamic";
@@ -135,27 +136,28 @@ async function markPaymentAsPaidAction(formData: FormData) {
       projected.month,
     );
 
-    const { data: createdPaymentRow, error: createPaymentError } = await supabase
-      .from("payment_plans")
-      .insert({
-        space_id: sourcePayment.spaceId,
-        user_id: sourcePayment.userId,
-        name: sourcePayment.name,
-        amount: sourcePayment.amount,
-        category: sourcePayment.category,
-        kind: sourcePayment.kind,
-        status: "paid",
-        due_date: projectedDueDate,
-        paid_at: paidAt,
-        postponed_to: null,
-        installment_number: sourcePayment.installmentNumber,
-        installment_total: sourcePayment.installmentTotal,
-        total_amount: sourcePayment.totalAmount,
-        remaining_amount: sourcePayment.remainingAmount,
-        notes: sourcePayment.notes,
-      })
-      .select("*")
-      .single();
+    const { data: createdPaymentRow, error: createPaymentError } =
+      await supabase
+        .from("payment_plans")
+        .insert({
+          space_id: sourcePayment.spaceId,
+          user_id: sourcePayment.userId,
+          name: sourcePayment.name,
+          amount: sourcePayment.amount,
+          category: sourcePayment.category,
+          kind: sourcePayment.kind,
+          status: "paid",
+          due_date: projectedDueDate,
+          paid_at: paidAt,
+          postponed_to: null,
+          installment_number: sourcePayment.installmentNumber,
+          installment_total: sourcePayment.installmentTotal,
+          total_amount: sourcePayment.totalAmount,
+          remaining_amount: sourcePayment.remainingAmount,
+          notes: sourcePayment.notes,
+        })
+        .select("*")
+        .single();
 
     if (createPaymentError) {
       throw new Error(createPaymentError.message);
@@ -265,7 +267,6 @@ async function deletePendingPaymentAction(formData: FormData) {
 export default async function PaymentsPage({ searchParams }: PaymentsPageProps) {
   const params = await searchParams;
   const month = resolveMonth(params?.month);
-  const nextMonth = shiftMonth(month, 1);
 
   const { supabase, user } = await requireUser();
 
@@ -305,242 +306,140 @@ export default async function PaymentsPage({ searchParams }: PaymentsPageProps) 
 
   return (
     <AppShell active="payments" userEmail={user.email}>
-      <section className="mx-auto grid max-w-6xl gap-6 lg:grid-cols-[420px_1fr]">
-        <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-6 shadow-2xl shadow-black/20">
-          <p className="mb-3 text-xs font-bold uppercase tracking-[0.35em] text-emerald-300">
-            Planificación de salidas
-          </p>
-          <h1 className="text-3xl font-semibold tracking-tight">
-            Agenda de pagos
-          </h1>
-          <p className="mt-3 text-sm leading-6 text-slate-300">
-            Aquí planeas pagos únicos, recurrentes y cuotas. Al confirmar un
-            pago, Brújula crea automáticamente un movimiento real.
-          </p>
+      <section className="mx-auto max-w-6xl">
+        <div className="mb-8 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+          <div>
+            <p className="mb-3 text-xs font-bold uppercase tracking-[0.35em] text-emerald-300">
+              Planificación de salidas
+            </p>
+            <h1 className="text-4xl font-semibold tracking-tight">
+              Agenda de pagos
+            </h1>
+            <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-300">
+              Programa pagos únicos, recurrentes y cuotas. Al confirmar un pago,
+              Brújula crea automáticamente un movimiento real.
+            </p>
+          </div>
 
-          <form action={createPaymentPlanAction} className="mt-6 space-y-4">
-            <div>
-              <label className="mb-2 block text-sm text-slate-300">
-                Tipo de pago
-              </label>
-              <select
-                name="kind"
-                defaultValue="single"
-                className="w-full rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-white outline-none"
-              >
-                <option value="single">Único</option>
-                <option value="recurrent">Recurrente</option>
-                <option value="temporary">Cuotas / temporal</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="mb-2 block text-sm text-slate-300">
-                Nombre
-              </label>
-              <input
-                name="name"
-                required
-                placeholder="Ej: Internet, arriendo, tarjeta"
-                className="w-full rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-white outline-none placeholder:text-slate-500"
-              />
-            </div>
-
-            <div>
-              <label className="mb-2 block text-sm text-slate-300">
-                Valor
-              </label>
-              <input
-                name="amount"
-                type="number"
-                min="1"
-                step="1"
-                required
-                placeholder="144000"
-                className="w-full rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-white outline-none placeholder:text-slate-500"
-              />
-              <p className="mt-2 text-xs text-slate-500">
-                En cuotas, este es el valor de cada cuota.
-              </p>
-            </div>
-
-            <div>
-              <label className="mb-2 block text-sm text-slate-300">
-                Categoría
-              </label>
-              <input
-                name="category"
-                required
-                placeholder="Ej: Servicios, vivienda, deuda"
-                className="w-full rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-white outline-none placeholder:text-slate-500"
-              />
-            </div>
-
-            <div>
-              <label className="mb-2 block text-sm text-slate-300">
-                Fecha programada
-              </label>
-              <input
-                name="dueDate"
-                type="date"
-                defaultValue={todayValue()}
-                required
-                className="w-full rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-white outline-none"
-              />
-            </div>
-
-            <div>
-              <label className="mb-2 block text-sm text-slate-300">
-                Número de cuotas
-              </label>
-              <input
-                name="installmentTotal"
-                type="number"
-                min="1"
-                step="1"
-                placeholder="Solo si es pago por cuotas"
-                className="w-full rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-white outline-none placeholder:text-slate-500"
-              />
-            </div>
-
-            <div>
-              <label className="mb-2 block text-sm text-slate-300">
-                Notas
-              </label>
-              <textarea
-                name="notes"
-                rows={3}
-                placeholder="Opcional"
-                className="w-full rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-white outline-none placeholder:text-slate-500"
-              />
-            </div>
-
-            <button className="w-full rounded-2xl bg-emerald-400 px-4 py-3 font-semibold text-slate-950 transition hover:bg-emerald-300">
-              Guardar en agenda
-            </button>
-          </form>
+          <PaymentPlanDialog action={createPaymentPlanAction} />
         </div>
 
-        <div className="space-y-6">
+        <div className="mb-6">
           <MonthSelector month={month} basePath="/payments" />
+        </div>
 
-          <div className="grid gap-4 md:grid-cols-3">
-            <article className="rounded-3xl border border-amber-300/20 bg-amber-300/10 p-5">
-              <p className="text-sm text-amber-200">Pendiente</p>
-              <h2 className="mt-3 text-2xl font-semibold text-amber-100">
-                {formatMoney(activeTotal)}
-              </h2>
-            </article>
+        <div className="mb-6 grid gap-4 md:grid-cols-3">
+          <article className="rounded-3xl border border-amber-300/20 bg-amber-300/10 p-5">
+            <p className="text-sm text-amber-200">Pendiente</p>
+            <h2 className="mt-3 text-2xl font-semibold text-amber-100">
+              {formatMoney(activeTotal)}
+            </h2>
+          </article>
 
-            <article className="rounded-3xl border border-emerald-300/20 bg-emerald-300/10 p-5">
-              <p className="text-sm text-emerald-200">Pagado</p>
-              <h2 className="mt-3 text-2xl font-semibold text-emerald-100">
-                {formatMoney(paidTotal)}
-              </h2>
-            </article>
+          <article className="rounded-3xl border border-emerald-300/20 bg-emerald-300/10 p-5">
+            <p className="text-sm text-emerald-200">Pagado</p>
+            <h2 className="mt-3 text-2xl font-semibold text-emerald-100">
+              {formatMoney(paidTotal)}
+            </h2>
+          </article>
 
-            <article className="rounded-3xl border border-white/10 bg-white/[0.04] p-5">
-              <p className="text-sm text-slate-400">Registros</p>
-              <h2 className="mt-3 text-2xl font-semibold">
-                {payments.length}
-              </h2>
-            </article>
+          <article className="rounded-3xl border border-white/10 bg-white/[0.04] p-5">
+            <p className="text-sm text-slate-400">Registros</p>
+            <h2 className="mt-3 text-2xl font-semibold">{payments.length}</h2>
+          </article>
+        </div>
+
+        <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-6 shadow-2xl shadow-black/20">
+          <div className="mb-5">
+            <p className="text-sm text-slate-400">Lista del periodo</p>
+            <h2 className="text-2xl font-semibold">Pagos planificados</h2>
           </div>
 
-          <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-6 shadow-2xl shadow-black/20">
-            <div className="mb-5">
-              <p className="text-sm text-slate-400">Lista del periodo</p>
-              <h2 className="text-2xl font-semibold">Pagos planificados</h2>
+          {payments.length === 0 ? (
+            <div className="rounded-3xl border border-dashed border-white/10 p-8 text-center">
+              <p className="text-lg font-semibold">
+                No hay pagos en este periodo
+              </p>
+              <p className="mt-2 text-sm text-slate-400">
+                Cambia de mes o crea un pago con fecha dentro de este periodo.
+              </p>
             </div>
+          ) : (
+            <div className="space-y-3">
+              {payments.map((payment) => {
+                const isProjected = isProjectedPlan(payment.id);
+                const canMarkPaid = isPaymentActive(payment);
+                const canDelete = payment.status !== "paid" && !isProjected;
 
-            {payments.length === 0 ? (
-              <div className="rounded-3xl border border-dashed border-white/10 p-8 text-center">
-                <p className="text-lg font-semibold">
-                  No hay pagos en este periodo
-                </p>
-                <p className="mt-2 text-sm text-slate-400">
-                  Cambia de mes o crea un pago con fecha dentro de este periodo.
-                </p>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {payments.map((payment) => {
-                  const isProjected = isProjectedPlan(payment.id);
-                  const canMarkPaid = isPaymentActive(payment);
-                  const canDelete = payment.status !== "paid" && !isProjected;
+                return (
+                  <article
+                    key={payment.id}
+                    className="rounded-3xl border border-white/10 bg-black/20 p-4"
+                  >
+                    <div className="flex items-start justify-between gap-4">
+                      <div>
+                        <p className="font-semibold">{payment.name}</p>
+                        <p className="mt-1 text-sm text-slate-400">
+                          {payment.category} · {payment.dueDate ?? "Sin fecha"} ·{" "}
+                          {payment.kind === "recurrent"
+                            ? "Recurrente"
+                            : payment.kind === "temporary"
+                              ? `Cuota ${payment.installmentNumber ?? 1}/${
+                                  payment.installmentTotal ?? "?"
+                                }`
+                              : "Único"}
+                        </p>
+                        <p className="mt-2 text-xs font-semibold text-amber-200">
+                          {isProjected
+                            ? "Programado recurrente"
+                            : getPaymentDisplayStatus(payment)}
+                        </p>
+                        {payment.notes ? (
+                          <p className="mt-2 text-sm text-slate-500">
+                            {payment.notes}
+                          </p>
+                        ) : null}
 
-                  return (
-                    <article
-                      key={payment.id}
-                      className="rounded-3xl border border-white/10 bg-black/20 p-4"
-                    >
-                      <div className="flex items-start justify-between gap-4">
-                        <div>
-                          <p className="font-semibold">{payment.name}</p>
-                          <p className="mt-1 text-sm text-slate-400">
-                            {payment.category} · {payment.dueDate ?? "Sin fecha"} ·{" "}
-                            {payment.kind === "recurrent"
-                              ? "Recurrente"
-                              : payment.kind === "temporary"
-                                ? `Cuota ${payment.installmentNumber ?? 1}/${
-                                    payment.installmentTotal ?? "?"
-                                  }`
-                                : "Único"}
-                          </p>
-                          <p className="mt-2 text-xs font-semibold text-amber-200">
-                            {isProjected
-                              ? "Programado recurrente"
-                              : getPaymentDisplayStatus(payment)}
-                          </p>
-                          {payment.notes ? (
-                            <p className="mt-2 text-sm text-slate-500">
-                              {payment.notes}
-                            </p>
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          {canMarkPaid ? (
+                            <form action={markPaymentAsPaidAction}>
+                              <input
+                                type="hidden"
+                                name="paymentId"
+                                value={payment.id}
+                              />
+                              <button className="rounded-full border border-emerald-300/20 px-3 py-1 text-xs font-semibold text-emerald-200 transition hover:bg-emerald-300/10">
+                                Marcar pagado
+                              </button>
+                            </form>
                           ) : null}
 
-                          <div className="mt-3 flex flex-wrap gap-2">
-                            {canMarkPaid ? (
-                              <form action={markPaymentAsPaidAction}>
-                                <input
-                                  type="hidden"
-                                  name="paymentId"
-                                  value={payment.id}
-                                />
-                                <button className="rounded-full border border-emerald-300/20 px-3 py-1 text-xs font-semibold text-emerald-200 transition hover:bg-emerald-300/10">
-                                  Marcar pagado
-                                </button>
-                              </form>
-                            ) : null}
-
-                            {canDelete ? (
-                              <form action={deletePendingPaymentAction}>
-                                <input
-                                  type="hidden"
-                                  name="paymentId"
-                                  value={payment.id}
-                                />
-                                <button className="rounded-full border border-rose-300/20 px-3 py-1 text-xs font-semibold text-rose-200 transition hover:bg-rose-300/10">
-                                  Eliminar
-                                </button>
-                              </form>
-                            ) : null}
-                          </div>
+                          {canDelete ? (
+                            <form action={deletePendingPaymentAction}>
+                              <input
+                                type="hidden"
+                                name="paymentId"
+                                value={payment.id}
+                              />
+                              <button className="rounded-full border border-rose-300/20 px-3 py-1 text-xs font-semibold text-rose-200 transition hover:bg-rose-300/10">
+                                Eliminar
+                              </button>
+                            </form>
+                          ) : null}
                         </div>
-
-                        <p className="text-right text-lg font-bold text-rose-300">
-                          -{formatMoney(payment.amount)}
-                        </p>
                       </div>
-                    </article>
-                  );
-                })}
-              </div>
-            )}
-          </div>
+
+                      <p className="text-right text-lg font-bold text-rose-300">
+                        -{formatMoney(payment.amount)}
+                      </p>
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+          )}
         </div>
       </section>
     </AppShell>
   );
 }
-
-
