@@ -1,6 +1,7 @@
 ﻿export const dynamic = "force-dynamic";
 
 import { AppShell } from "@/components/layout/app-shell";
+import { MonthSelector } from "@/components/finance/month-selector";
 import { buildDashboardSummary } from "@/lib/finance/dashboard";
 import { currentMonthValue, getMonthLabel } from "@/lib/finance/dates";
 import {
@@ -12,7 +13,26 @@ import {
 import { formatMoney } from "@/lib/finance/money";
 import { requireUser } from "@/lib/supabase/auth";
 
-export default async function DashboardPage() {
+type DashboardPageProps = {
+  searchParams?: Promise<{
+    month?: string;
+  }>;
+};
+
+function resolveMonth(month?: string) {
+  if (!month || !/^\d{4}-\d{2}$/.test(month)) {
+    return currentMonthValue();
+  }
+
+  return month;
+}
+
+export default async function DashboardPage({
+  searchParams,
+}: DashboardPageProps) {
+  const params = await searchParams;
+  const month = resolveMonth(params?.month);
+
   const { supabase, user } = await requireUser();
 
   const { data: space, error: spaceError } = await supabase.rpc(
@@ -27,29 +47,24 @@ export default async function DashboardPage() {
     throw new Error("No se encontró un espacio financiero activo.");
   }
 
-  const month = currentMonthValue();
-
-  const [
-    movementsResponse,
-    paymentPlansResponse,
-    incomePlansResponse,
-  ] = await Promise.all([
-    supabase
-      .from("movements")
-      .select("*")
-      .eq("space_id", space.id)
-      .order("occurred_on", { ascending: false }),
-    supabase
-      .from("payment_plans")
-      .select("*")
-      .eq("space_id", space.id)
-      .order("due_date", { ascending: true }),
-    supabase
-      .from("income_plans")
-      .select("*")
-      .eq("space_id", space.id)
-      .order("expected_date", { ascending: true }),
-  ]);
+  const [movementsResponse, paymentPlansResponse, incomePlansResponse] =
+    await Promise.all([
+      supabase
+        .from("movements")
+        .select("*")
+        .eq("space_id", space.id)
+        .order("occurred_on", { ascending: false }),
+      supabase
+        .from("payment_plans")
+        .select("*")
+        .eq("space_id", space.id)
+        .order("due_date", { ascending: true }),
+      supabase
+        .from("income_plans")
+        .select("*")
+        .eq("space_id", space.id)
+        .order("expected_date", { ascending: true }),
+    ]);
 
   if (movementsResponse.error) {
     throw new Error(movementsResponse.error.message);
@@ -85,6 +100,10 @@ export default async function DashboardPage() {
             Tu centro de control para movimientos reales, ingresos esperados,
             agenda de pagos y disponible estimado.
           </p>
+        </div>
+
+        <div className="mb-6">
+          <MonthSelector month={month} basePath="/dashboard" />
         </div>
 
         <div className="mb-6 rounded-[2rem] border border-emerald-300/20 bg-emerald-300/10 p-6 shadow-2xl shadow-emerald-950/20">
