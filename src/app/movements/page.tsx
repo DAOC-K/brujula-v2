@@ -1,9 +1,13 @@
 ﻿import { revalidatePath } from "next/cache";
 
-import { AppShell } from "@/components/layout/app-shell";
+import { DeleteManualMovementButton } from "@/components/finance/delete-manual-movement-button";
 import { ManualMovementDialog } from "@/components/finance/manual-movement-dialog";
+import { AppShell } from "@/components/layout/app-shell";
 import { todayValue } from "@/lib/finance/dates";
-import { movementDraftToInsert, movementRowToMovement } from "@/lib/finance/mappers";
+import {
+  movementDraftToInsert,
+  movementRowToMovement,
+} from "@/lib/finance/mappers";
 import { formatMoney, sumMoney } from "@/lib/finance/money";
 import {
   buildManualMovement,
@@ -48,6 +52,31 @@ async function createManualMovementAction(formData: FormData) {
   const { error } = await supabase
     .from("movements")
     .insert(movementDraftToInsert(movementDraft));
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  revalidatePath("/movements");
+  revalidatePath("/dashboard");
+}
+
+async function deleteManualMovementAction(formData: FormData) {
+  "use server";
+
+  const { supabase, user } = await requireUser();
+  const movementId = String(formData.get("movementId") ?? "");
+
+  if (!movementId) {
+    throw new Error("No se recibió el movimiento a eliminar.");
+  }
+
+  const { error } = await supabase
+    .from("movements")
+    .delete()
+    .eq("id", movementId)
+    .eq("user_id", user.id)
+    .eq("source_type", "manual");
 
   if (error) {
     throw new Error(error.message);
@@ -172,6 +201,7 @@ export default async function MovementsPage() {
             <div className="space-y-3">
               {movements.map((movement) => {
                 const isIncome = movement.type === "income";
+                const canDelete = movement.sourceType === "manual";
 
                 return (
                   <article
@@ -189,6 +219,16 @@ export default async function MovementsPage() {
                           <p className="mt-2 text-sm text-slate-500">
                             {movement.notes}
                           </p>
+                        ) : null}
+
+                        {canDelete ? (
+                          <div className="mt-3">
+                            <DeleteManualMovementButton
+                              movementId={movement.id}
+                              movementName={movement.name}
+                              action={deleteManualMovementAction}
+                            />
+                          </div>
                         ) : null}
                       </div>
 
@@ -211,4 +251,3 @@ export default async function MovementsPage() {
     </AppShell>
   );
 }
-
