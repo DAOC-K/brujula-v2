@@ -29,6 +29,7 @@ import {
   projectPaymentPlansForMonth,
 } from "@/lib/finance/projections";
 import { requireUser } from "@/lib/supabase/auth";
+import { isUniqueViolation } from "@/lib/supabase/errors";
 
 export const dynamic = "force-dynamic";
 
@@ -162,6 +163,13 @@ async function markPaymentAsPaidAction(formData: FormData) {
         .single();
 
     if (createPaymentError) {
+      if (isUniqueViolation(createPaymentError)) {
+        revalidatePath("/payments");
+        revalidatePath("/movements");
+        revalidatePath("/dashboard");
+        return;
+      }
+
       throw new Error(createPaymentError.message);
     }
 
@@ -182,7 +190,7 @@ async function markPaymentAsPaidAction(formData: FormData) {
       notes: createdPaymentRow.notes,
     });
 
-    if (movementError) {
+    if (movementError && !isUniqueViolation(movementError)) {
       throw new Error(movementError.message);
     }
 
@@ -231,7 +239,7 @@ async function markPaymentAsPaidAction(formData: FormData) {
       .from("payment_plans")
       .insert(paymentPlanDraftToInsert(result.nextPaymentDraft));
 
-    if (nextPaymentError) {
+    if (nextPaymentError && !isUniqueViolation(nextPaymentError)) {
       throw new Error(nextPaymentError.message);
     }
   }
@@ -518,5 +526,6 @@ export default async function PaymentsPage({ searchParams }: PaymentsPageProps) 
     </AppShell>
   );
 }
+
 
 

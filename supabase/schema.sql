@@ -525,3 +525,20 @@ end;
 $$;
 
 grant execute on function public.ensure_personal_space() to authenticated;
+
+-- Blindaje contra duplicados financieros
+create unique index if not exists movements_unique_payment_source
+on public.movements(source_payment_plan_id)
+where source_payment_plan_id is not null;
+
+create unique index if not exists movements_unique_income_source
+on public.movements(source_income_plan_id)
+where source_income_plan_id is not null;
+
+create unique index if not exists payment_plans_unique_recurrent_materialized_date
+on public.payment_plans(space_id, name, category, amount, kind, due_date)
+where kind = 'recurrent';
+
+create unique index if not exists income_plans_unique_recurrent_materialized_date
+on public.income_plans(space_id, name, category, amount, kind, expected_date)
+where kind = 'recurrent';

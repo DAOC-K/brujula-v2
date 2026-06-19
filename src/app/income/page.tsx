@@ -29,6 +29,7 @@ import {
   projectIncomePlansForMonth,
 } from "@/lib/finance/projections";
 import { requireUser } from "@/lib/supabase/auth";
+import { isUniqueViolation } from "@/lib/supabase/errors";
 
 export const dynamic = "force-dynamic";
 
@@ -142,6 +143,13 @@ async function markIncomeAsReceivedAction(formData: FormData) {
       .single();
 
     if (createIncomeError) {
+      if (isUniqueViolation(createIncomeError)) {
+        revalidatePath("/income");
+        revalidatePath("/movements");
+        revalidatePath("/dashboard");
+        return;
+      }
+
       throw new Error(createIncomeError.message);
     }
 
@@ -162,7 +170,7 @@ async function markIncomeAsReceivedAction(formData: FormData) {
       notes: createdIncomeRow.notes,
     });
 
-    if (movementError) {
+    if (movementError && !isUniqueViolation(movementError)) {
       throw new Error(movementError.message);
     }
 
@@ -483,5 +491,6 @@ export default async function IncomePage({ searchParams }: IncomePageProps) {
     </AppShell>
   );
 }
+
 
 
