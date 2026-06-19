@@ -2,6 +2,7 @@
 
 import { DeleteManualMovementButton } from "@/components/finance/delete-manual-movement-button";
 import { EditManualMovementDialog } from "@/components/finance/edit-manual-movement-dialog";
+import { MovementSourceBadge } from "@/components/finance/finance-badge";
 import { ManualMovementDialog } from "@/components/finance/manual-movement-dialog";
 import { MonthSelector } from "@/components/finance/month-selector";
 import { AppShell } from "@/components/layout/app-shell";
@@ -327,4 +328,5 @@ export default async function MovementsPage({
     </AppShell>
   );
 }
+
 

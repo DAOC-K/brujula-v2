@@ -2,6 +2,7 @@
 
 import { ConfirmActionButton } from "@/components/finance/confirm-action-button";
 import { EditIncomePlanDialog } from "@/components/finance/edit-income-plan-dialog";
+import { IncomeStatusBadge } from "@/components/finance/finance-badge";
 import { IncomePlanDialog } from "@/components/finance/income-plan-dialog";
 import { MonthSelector } from "@/components/finance/month-selector";
 import { AppShell } from "@/components/layout/app-shell";
@@ -414,11 +415,12 @@ export default async function IncomePage({ searchParams }: IncomePageProps) {
                               ? "Temporal"
                               : "Único"}
                         </p>
-                        <p className="mt-2 text-xs font-semibold text-sky-200">
-                          {isProjected
-                            ? "Programado recurrente"
-                            : getIncomeDisplayStatus(income)}
-                        </p>
+                        <div className="mt-2">
+                          <IncomeStatusBadge
+                            status={income.status}
+                            isProjected={isProjected}
+                          />
+                        </div>
 
                         {income.notes ? (
                           <p className="mt-2 text-sm text-slate-500">
@@ -488,6 +490,7 @@ export default async function IncomePage({ searchParams }: IncomePageProps) {
     </AppShell>
   );
 }
+
 
 
 

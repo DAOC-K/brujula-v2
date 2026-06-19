@@ -2,6 +2,7 @@
 
 import { ConfirmActionButton } from "@/components/finance/confirm-action-button";
 import { EditPaymentPlanDialog } from "@/components/finance/edit-payment-plan-dialog";
+import { PaymentStatusBadge } from "@/components/finance/finance-badge";
 import { MonthSelector } from "@/components/finance/month-selector";
 import { PaymentPlanDialog } from "@/components/finance/payment-plan-dialog";
 import { AppShell } from "@/components/layout/app-shell";
@@ -449,11 +450,12 @@ export default async function PaymentsPage({ searchParams }: PaymentsPageProps) 
                                 }`
                               : "Único"}
                         </p>
-                        <p className="mt-2 text-xs font-semibold text-amber-200">
-                          {isProjected
-                            ? "Programado recurrente"
-                            : getPaymentDisplayStatus(payment)}
-                        </p>
+                        <div className="mt-2">
+                          <PaymentStatusBadge
+                            status={payment.status}
+                            isProjected={isProjected}
+                          />
+                        </div>
                         {payment.notes ? (
                           <p className="mt-2 text-sm text-slate-500">
                             {payment.notes}
@@ -523,6 +525,7 @@ export default async function PaymentsPage({ searchParams }: PaymentsPageProps) 
     </AppShell>
   );
 }
+
 
 
 

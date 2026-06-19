@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 
+import { MovementSourceBadge } from "@/components/finance/finance-badge";
 import { MonthSelector } from "@/components/finance/month-selector";
 import { AppShell } from "@/components/layout/app-shell";
 import { buildDashboardSummary } from "@/lib/finance/dashboard";
@@ -327,10 +328,12 @@ export default async function DashboardPage({
                       <div className="flex items-start justify-between gap-4">
                         <div>
                           <p className="font-semibold">{movement.name}</p>
-                          <p className="mt-1 text-sm text-slate-400">
-                            {movement.category} · {movement.occurredOn} ·{" "}
-                            {getMovementDisplaySource(movement)}
-                          </p>
+                          <div className="mt-2 flex flex-wrap items-center gap-2 text-sm text-slate-400">
+                            <span>{movement.category}</span>
+                            <span>·</span>
+                            <span>{movement.occurredOn}</span>
+                            <MovementSourceBadge sourceType={movement.sourceType} />
+                          </div>
                         </div>
 
                         <p
@@ -418,3 +421,4 @@ export default async function DashboardPage({
     </AppShell>
   );
 }
+
