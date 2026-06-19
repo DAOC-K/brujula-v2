@@ -28,6 +28,7 @@ import {
   parseProjectedPlanId,
   projectPaymentPlansForMonth,
 } from "@/lib/finance/projections";
+import { insertMovementIfMissing } from "@/lib/finance/safe-movements";
 import { requireUser } from "@/lib/supabase/auth";
 import { isUniqueViolation } from "@/lib/supabase/errors";
 
@@ -173,7 +174,7 @@ async function markPaymentAsPaidAction(formData: FormData) {
       throw new Error(createPaymentError.message);
     }
 
-    const { error: movementError } = await supabase.from("movements").insert({
+    await insertMovementIfMissing(supabase, {
       space_id: createdPaymentRow.space_id,
       user_id: createdPaymentRow.user_id,
       type: "expense",
@@ -189,10 +190,6 @@ async function markPaymentAsPaidAction(formData: FormData) {
       source_label: "Desde Agenda",
       notes: createdPaymentRow.notes,
     });
-
-    if (movementError && !isUniqueViolation(movementError)) {
-      throw new Error(movementError.message);
-    }
 
     revalidatePath("/payments");
     revalidatePath("/movements");
@@ -526,6 +523,7 @@ export default async function PaymentsPage({ searchParams }: PaymentsPageProps) 
     </AppShell>
   );
 }
+
 
 
 

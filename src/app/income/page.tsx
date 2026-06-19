@@ -28,6 +28,7 @@ import {
   parseProjectedPlanId,
   projectIncomePlansForMonth,
 } from "@/lib/finance/projections";
+import { insertMovementIfMissing } from "@/lib/finance/safe-movements";
 import { requireUser } from "@/lib/supabase/auth";
 import { isUniqueViolation } from "@/lib/supabase/errors";
 
@@ -153,7 +154,7 @@ async function markIncomeAsReceivedAction(formData: FormData) {
       throw new Error(createIncomeError.message);
     }
 
-    const { error: movementError } = await supabase.from("movements").insert({
+    await insertMovementIfMissing(supabase, {
       space_id: createdIncomeRow.space_id,
       user_id: createdIncomeRow.user_id,
       type: "income",
@@ -169,10 +170,6 @@ async function markIncomeAsReceivedAction(formData: FormData) {
       source_label: "Desde Ingresos",
       notes: createdIncomeRow.notes,
     });
-
-    if (movementError && !isUniqueViolation(movementError)) {
-      throw new Error(movementError.message);
-    }
 
     revalidatePath("/income");
     revalidatePath("/movements");
@@ -491,6 +488,7 @@ export default async function IncomePage({ searchParams }: IncomePageProps) {
     </AppShell>
   );
 }
+
 
 
 
