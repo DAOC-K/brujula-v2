@@ -1,9 +1,15 @@
 ﻿export const dynamic = "force-dynamic";
 
-import { AppShell } from "@/components/layout/app-shell";
+import Link from "next/link";
+
 import { MonthSelector } from "@/components/finance/month-selector";
+import { AppShell } from "@/components/layout/app-shell";
 import { buildDashboardSummary } from "@/lib/finance/dashboard";
-import { currentMonthValue, getMonthLabel } from "@/lib/finance/dates";
+import {
+  currentMonthValue,
+  getMonthLabel,
+  isSameMonth,
+} from "@/lib/finance/dates";
 import {
   financialSpaceRowToFinancialSpace,
   incomePlanRowToIncomePlan,
@@ -11,6 +17,7 @@ import {
   paymentPlanRowToPaymentPlan,
 } from "@/lib/finance/mappers";
 import { formatMoney } from "@/lib/finance/money";
+import { getMovementDisplaySource } from "@/lib/finance/movements";
 import {
   projectIncomePlansForMonth,
   projectPaymentPlansForMonth,
@@ -29,6 +36,54 @@ function resolveMonth(month?: string) {
   }
 
   return month;
+}
+
+function getDashboardRecommendations({
+  availableEstimated,
+  realIncome,
+  expectedIncome,
+  realExpenses,
+  pendingPayments,
+}: {
+  availableEstimated: number;
+  realIncome: number;
+  expectedIncome: number;
+  realExpenses: number;
+  pendingPayments: number;
+}) {
+  const recommendations: string[] = [];
+
+  if (availableEstimated < 0) {
+    recommendations.push(
+      "Tu disponible estimado está negativo. Revisa pagos pendientes o gastos reales antes de asumir nuevos compromisos.",
+    );
+  }
+
+  if (pendingPayments > 0) {
+    recommendations.push(
+      "Tienes pagos pendientes en Agenda. Confirma los pagos cuando realmente salgan de tu dinero para mantener el historial limpio.",
+    );
+  }
+
+  if (realIncome === 0 && expectedIncome === 0) {
+    recommendations.push(
+      "Este periodo no tiene ingresos reales ni ingresos esperados. Puedes crear un ingreso esperado o usar el presupuesto mensual como respaldo.",
+    );
+  }
+
+  if (realIncome > 0 && realExpenses > realIncome * 0.7) {
+    recommendations.push(
+      "Tus gastos reales ya consumen una parte alta de tus ingresos. Conviene revisar gastos variables del mes.",
+    );
+  }
+
+  if (recommendations.length === 0) {
+    recommendations.push(
+      "Tu periodo se ve estable. Mantén Agenda e Ingresos actualizados para que Brújula siga calculando bien tu disponible.",
+    );
+  }
+
+  return recommendations;
 }
 
 export default async function DashboardPage({
@@ -57,7 +112,8 @@ export default async function DashboardPage({
         .from("movements")
         .select("*")
         .eq("space_id", space.id)
-        .order("occurred_on", { ascending: false }),
+        .order("occurred_on", { ascending: false })
+        .order("created_at", { ascending: false }),
       supabase
         .from("payment_plans")
         .select("*")
@@ -82,6 +138,8 @@ export default async function DashboardPage({
     throw new Error(incomePlansResponse.error.message);
   }
 
+  const movements = (movementsResponse.data ?? []).map(movementRowToMovement);
+
   const paymentPlans = projectPaymentPlansForMonth(
     (paymentPlansResponse.data ?? []).map(paymentPlanRowToPaymentPlan),
     month,
@@ -95,9 +153,27 @@ export default async function DashboardPage({
   const summary = buildDashboardSummary({
     month,
     spaces: [financialSpaceRowToFinancialSpace(space)],
-    movements: (movementsResponse.data ?? []).map(movementRowToMovement),
+    movements,
     paymentPlans,
     incomePlans,
+  });
+
+  const recentMovements = movements
+    .filter((movement) => isSameMonth(movement.occurredOn, month))
+    .slice(0, 5);
+
+  const upcomingPayments = paymentPlans
+    .filter((payment) =>
+      ["pending", "overdue", "postponed"].includes(payment.status),
+    )
+    .slice(0, 5);
+
+  const recommendations = getDashboardRecommendations({
+    availableEstimated: summary.availableEstimated,
+    realIncome: summary.realIncome,
+    expectedIncome: summary.expectedIncome,
+    realExpenses: summary.realExpenses,
+    pendingPayments: summary.pendingPayments,
   });
 
   return (
@@ -211,8 +287,134 @@ export default async function DashboardPage({
             </p>
           </article>
         </div>
+
+        <div className="mt-6 grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
+          <section className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-6 shadow-2xl shadow-black/20">
+            <div className="mb-5 flex items-center justify-between gap-4">
+              <div>
+                <p className="text-sm text-slate-400">Historial</p>
+                <h2 className="text-2xl font-semibold">
+                  Actividad reciente
+                </h2>
+              </div>
+
+              <Link
+                href={`/movements?month=${month}`}
+                className="rounded-full border border-white/10 px-3 py-1 text-xs font-semibold text-slate-300 transition hover:bg-white/10"
+              >
+                Ver todo
+              </Link>
+            </div>
+
+            {recentMovements.length === 0 ? (
+              <div className="rounded-3xl border border-dashed border-white/10 p-8 text-center">
+                <p className="font-semibold">Sin movimientos en este periodo</p>
+                <p className="mt-2 text-sm text-slate-400">
+                  Los pagos confirmados, ingresos recibidos y gastos manuales
+                  aparecerán aquí.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {recentMovements.map((movement) => {
+                  const isIncome = movement.type === "income";
+
+                  return (
+                    <article
+                      key={movement.id}
+                      className="rounded-3xl border border-white/10 bg-black/20 p-4"
+                    >
+                      <div className="flex items-start justify-between gap-4">
+                        <div>
+                          <p className="font-semibold">{movement.name}</p>
+                          <p className="mt-1 text-sm text-slate-400">
+                            {movement.category} · {movement.occurredOn} ·{" "}
+                            {getMovementDisplaySource(movement)}
+                          </p>
+                        </div>
+
+                        <p
+                          className={`text-right text-lg font-bold ${
+                            isIncome ? "text-emerald-300" : "text-rose-300"
+                          }`}
+                        >
+                          {isIncome ? "+" : "-"}
+                          {formatMoney(movement.amount)}
+                        </p>
+                      </div>
+                    </article>
+                  );
+                })}
+              </div>
+            )}
+          </section>
+
+          <section className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-6 shadow-2xl shadow-black/20">
+            <div className="mb-5 flex items-center justify-between gap-4">
+              <div>
+                <p className="text-sm text-slate-400">Agenda</p>
+                <h2 className="text-2xl font-semibold">
+                  Próximos pagos
+                </h2>
+              </div>
+
+              <Link
+                href={`/payments?month=${month}`}
+                className="rounded-full border border-white/10 px-3 py-1 text-xs font-semibold text-slate-300 transition hover:bg-white/10"
+              >
+                Ver agenda
+              </Link>
+            </div>
+
+            {upcomingPayments.length === 0 ? (
+              <div className="rounded-3xl border border-dashed border-white/10 p-8 text-center">
+                <p className="font-semibold">Sin pagos pendientes</p>
+                <p className="mt-2 text-sm text-slate-400">
+                  Tu agenda del periodo no tiene salidas pendientes.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {upcomingPayments.map((payment) => (
+                  <article
+                    key={payment.id}
+                    className="rounded-3xl border border-amber-300/10 bg-amber-300/5 p-4"
+                  >
+                    <div className="flex items-start justify-between gap-4">
+                      <div>
+                        <p className="font-semibold">{payment.name}</p>
+                        <p className="mt-1 text-sm text-slate-400">
+                          {payment.category} · {payment.dueDate ?? "Sin fecha"}
+                        </p>
+                      </div>
+
+                      <p className="text-right text-lg font-bold text-amber-200">
+                        {formatMoney(payment.amount)}
+                      </p>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            )}
+          </section>
+        </div>
+
+        <section className="mt-6 rounded-[2rem] border border-emerald-300/20 bg-emerald-300/10 p-6 shadow-2xl shadow-emerald-950/20">
+          <p className="mb-3 text-xs font-bold uppercase tracking-[0.3em] text-emerald-200">
+            Brújula recomienda
+          </p>
+          <div className="grid gap-3">
+            {recommendations.map((recommendation) => (
+              <div
+                key={recommendation}
+                className="rounded-3xl border border-emerald-300/10 bg-black/20 p-4 text-sm leading-6 text-emerald-50/90"
+              >
+                {recommendation}
+              </div>
+            ))}
+          </div>
+        </section>
       </section>
     </AppShell>
   );
 }
-
