@@ -1,6 +1,6 @@
 ﻿import Link from "next/link";
 
-type AppSection =
+export type AppSection =
   | "dashboard"
   | "movements"
   | "income"
@@ -167,3 +167,4 @@ export function AppShell({ active, userEmail, children }: AppShellProps) {
     </div>
   );
 }
+
