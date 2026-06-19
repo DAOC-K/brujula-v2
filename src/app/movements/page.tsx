@@ -1,6 +1,7 @@
 ﻿import { revalidatePath } from "next/cache";
 
 import { DeleteManualMovementButton } from "@/components/finance/delete-manual-movement-button";
+import { EditManualMovementDialog } from "@/components/finance/edit-manual-movement-dialog";
 import { ManualMovementDialog } from "@/components/finance/manual-movement-dialog";
 import { MonthSelector } from "@/components/finance/month-selector";
 import { AppShell } from "@/components/layout/app-shell";
@@ -76,6 +77,39 @@ async function createManualMovementAction(formData: FormData) {
   revalidatePath("/dashboard");
 }
 
+async function updateManualMovementAction(formData: FormData) {
+  "use server";
+
+  const { supabase, user } = await requireUser();
+  const movementId = String(formData.get("movementId") ?? "");
+
+  if (!movementId) {
+    throw new Error("No se recibió el movimiento a editar.");
+  }
+
+  const notesValue = String(formData.get("notes") ?? "").trim();
+
+  const { error } = await supabase
+    .from("movements")
+    .update({
+      name: String(formData.get("name") ?? ""),
+      amount: Number(formData.get("amount") ?? 0),
+      category: String(formData.get("category") ?? ""),
+      occurred_on: String(formData.get("occurredOn") ?? todayValue()),
+      notes: notesValue ? notesValue : null,
+    })
+    .eq("id", movementId)
+    .eq("user_id", user.id)
+    .eq("source_type", "manual")
+    .eq("type", "expense");
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  revalidatePath("/movements");
+  revalidatePath("/dashboard");
+}
 async function deleteManualMovementAction(formData: FormData) {
   "use server";
 
@@ -226,6 +260,7 @@ export default async function MovementsPage({
             <div className="space-y-3">
               {movements.map((movement) => {
                 const isIncome = movement.type === "income";
+                const canEdit = movement.sourceType === "manual";
                 const canDelete = movement.sourceType === "manual";
 
                 return (
@@ -246,13 +281,29 @@ export default async function MovementsPage({
                           </p>
                         ) : null}
 
-                        {canDelete ? (
-                          <div className="mt-3">
-                            <DeleteManualMovementButton
-                              movementId={movement.id}
-                              movementName={movement.name}
-                              action={deleteManualMovementAction}
-                            />
+                        {canEdit || canDelete ? (
+                          <div className="mt-3 flex flex-wrap gap-2">
+                            {canEdit ? (
+                              <EditManualMovementDialog
+                                action={updateManualMovementAction}
+                                movement={{
+                                  id: movement.id,
+                                  name: movement.name,
+                                  amount: movement.amount,
+                                  category: movement.category,
+                                  occurredOn: movement.occurredOn,
+                                  notes: movement.notes,
+                                }}
+                              />
+                            ) : null}
+
+                            {canDelete ? (
+                              <DeleteManualMovementButton
+                                movementId={movement.id}
+                                movementName={movement.name}
+                                action={deleteManualMovementAction}
+                              />
+                            ) : null}
                           </div>
                         ) : null}
                       </div>
@@ -276,3 +327,4 @@ export default async function MovementsPage({
     </AppShell>
   );
 }
+
