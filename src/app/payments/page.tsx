@@ -1,5 +1,6 @@
 ﻿import { revalidatePath } from "next/cache";
 
+import { ConfirmActionButton } from "@/components/finance/confirm-action-button";
 import { MonthSelector } from "@/components/finance/month-selector";
 import { PaymentPlanDialog } from "@/components/finance/payment-plan-dialog";
 import { AppShell } from "@/components/layout/app-shell";
@@ -415,16 +416,20 @@ export default async function PaymentsPage({ searchParams }: PaymentsPageProps) 
                           ) : null}
 
                           {canDelete ? (
-                            <form action={deletePendingPaymentAction}>
-                              <input
-                                type="hidden"
-                                name="paymentId"
-                                value={payment.id}
-                              />
-                              <button className="rounded-full border border-rose-300/20 px-3 py-1 text-xs font-semibold text-rose-200 transition hover:bg-rose-300/10">
-                                Eliminar
-                              </button>
-                            </form>
+                            <ConfirmActionButton
+                              action={deletePendingPaymentAction}
+                              hiddenFields={[
+                                {
+                                  name: "paymentId",
+                                  value: payment.id,
+                                },
+                              ]}
+                              triggerLabel="Eliminar"
+                              title="¿Eliminar este pago?"
+                              description={`Vas a eliminar "${payment.name}" de tu agenda. Esta acción solo aplica para pagos pendientes o programados que todavía no han sido pagados.`}
+                              confirmLabel="Sí, eliminar"
+                              tone="danger"
+                            />
                           ) : null}
                         </div>
                       </div>
@@ -443,3 +448,4 @@ export default async function PaymentsPage({ searchParams }: PaymentsPageProps) 
     </AppShell>
   );
 }
+

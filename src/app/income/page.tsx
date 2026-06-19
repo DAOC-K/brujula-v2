@@ -1,5 +1,6 @@
 ﻿import { revalidatePath } from "next/cache";
 
+import { ConfirmActionButton } from "@/components/finance/confirm-action-button";
 import { IncomePlanDialog } from "@/components/finance/income-plan-dialog";
 import { MonthSelector } from "@/components/finance/month-selector";
 import { AppShell } from "@/components/layout/app-shell";
@@ -393,16 +394,20 @@ export default async function IncomePage({ searchParams }: IncomePageProps) {
                           ) : null}
 
                           {canDelete ? (
-                            <form action={deleteExpectedIncomeAction}>
-                              <input
-                                type="hidden"
-                                name="incomeId"
-                                value={income.id}
-                              />
-                              <button className="rounded-full border border-rose-300/20 px-3 py-1 text-xs font-semibold text-rose-200 transition hover:bg-rose-300/10">
-                                Eliminar
-                              </button>
-                            </form>
+                            <ConfirmActionButton
+                              action={deleteExpectedIncomeAction}
+                              hiddenFields={[
+                                {
+                                  name: "incomeId",
+                                  value: income.id,
+                                },
+                              ]}
+                              triggerLabel="Eliminar"
+                              title="¿Eliminar este ingreso?"
+                              description={`Vas a eliminar "${income.name}" de tus ingresos esperados. Esta acción solo aplica para ingresos que todavía no han sido recibidos.`}
+                              confirmLabel="Sí, eliminar"
+                              tone="danger"
+                            />
                           ) : null}
                         </div>
                       </div>
@@ -421,3 +426,4 @@ export default async function IncomePage({ searchParams }: IncomePageProps) {
     </AppShell>
   );
 }
+
