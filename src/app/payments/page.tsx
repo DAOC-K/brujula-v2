@@ -1,6 +1,7 @@
 ﻿import { revalidatePath } from "next/cache";
 
 import { ConfirmActionButton } from "@/components/finance/confirm-action-button";
+import { EditPaymentPlanDialog } from "@/components/finance/edit-payment-plan-dialog";
 import { MonthSelector } from "@/components/finance/month-selector";
 import { PaymentPlanDialog } from "@/components/finance/payment-plan-dialog";
 import { AppShell } from "@/components/layout/app-shell";
@@ -240,6 +241,58 @@ async function markPaymentAsPaidAction(formData: FormData) {
   revalidatePath("/dashboard");
 }
 
+async function updatePendingPaymentAction(formData: FormData) {
+  "use server";
+
+  const { supabase, user } = await requireUser();
+  const paymentId = String(formData.get("paymentId") ?? "");
+
+  if (!paymentId) {
+    throw new Error("No se recibió el pago a editar.");
+  }
+
+  const kindValue = String(formData.get("kind") ?? "single");
+  const kind =
+    kindValue === "recurrent" || kindValue === "temporary"
+      ? kindValue
+      : "single";
+
+  const amount = Number(formData.get("amount") ?? 0);
+  const installmentTotalRaw = Number(formData.get("installmentTotal") ?? 0);
+  const installmentTotal =
+    kind === "temporary" && installmentTotalRaw > 0
+      ? installmentTotalRaw
+      : null;
+
+  const totalAmount =
+    kind === "temporary" && installmentTotal ? amount * installmentTotal : null;
+
+  const notesValue = String(formData.get("notes") ?? "").trim();
+
+  const { error } = await supabase
+    .from("payment_plans")
+    .update({
+      name: String(formData.get("name") ?? ""),
+      amount,
+      category: String(formData.get("category") ?? ""),
+      kind,
+      due_date: String(formData.get("dueDate") ?? todayValue()),
+      installment_total: installmentTotal,
+      total_amount: totalAmount,
+      remaining_amount: totalAmount,
+      notes: notesValue ? notesValue : null,
+    })
+    .eq("id", paymentId)
+    .eq("user_id", user.id)
+    .neq("status", "paid");
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  revalidatePath("/payments");
+  revalidatePath("/dashboard");
+}
 async function deletePendingPaymentAction(formData: FormData) {
   "use server";
 
@@ -370,6 +423,7 @@ export default async function PaymentsPage({ searchParams }: PaymentsPageProps) 
               {payments.map((payment) => {
                 const isProjected = isProjectedPlan(payment.id);
                 const canMarkPaid = isPaymentActive(payment);
+                const canEdit = payment.status !== "paid" && !isProjected;
                 const canDelete = payment.status !== "paid" && !isProjected;
 
                 return (
@@ -415,6 +469,22 @@ export default async function PaymentsPage({ searchParams }: PaymentsPageProps) 
                             </form>
                           ) : null}
 
+                          {canEdit ? (
+                            <EditPaymentPlanDialog
+                              action={updatePendingPaymentAction}
+                              payment={{
+                                id: payment.id,
+                                name: payment.name,
+                                amount: payment.amount,
+                                category: payment.category,
+                                kind: payment.kind,
+                                dueDate: payment.dueDate,
+                                installmentTotal: payment.installmentTotal,
+                                notes: payment.notes,
+                              }}
+                            />
+                          ) : null}
+
                           {canDelete ? (
                             <ConfirmActionButton
                               action={deletePendingPaymentAction}
@@ -448,4 +518,5 @@ export default async function PaymentsPage({ searchParams }: PaymentsPageProps) 
     </AppShell>
   );
 }
+
 
