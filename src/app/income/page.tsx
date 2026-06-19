@@ -1,6 +1,7 @@
 ﻿import { revalidatePath } from "next/cache";
 
 import { ConfirmActionButton } from "@/components/finance/confirm-action-button";
+import { EditIncomePlanDialog } from "@/components/finance/edit-income-plan-dialog";
 import { IncomePlanDialog } from "@/components/finance/income-plan-dialog";
 import { MonthSelector } from "@/components/finance/month-selector";
 import { AppShell } from "@/components/layout/app-shell";
@@ -209,6 +210,46 @@ async function markIncomeAsReceivedAction(formData: FormData) {
   revalidatePath("/dashboard");
 }
 
+async function updateExpectedIncomeAction(formData: FormData) {
+  "use server";
+
+  const { supabase, user } = await requireUser();
+  const incomeId = String(formData.get("incomeId") ?? "");
+
+  if (!incomeId) {
+    throw new Error("No se recibió el ingreso a editar.");
+  }
+
+  const kindValue = String(formData.get("kind") ?? "single");
+  const kind =
+    kindValue === "recurrent" || kindValue === "temporary"
+      ? kindValue
+      : "single";
+
+  const amount = Number(formData.get("amount") ?? 0);
+  const notesValue = String(formData.get("notes") ?? "").trim();
+
+  const { error } = await supabase
+    .from("income_plans")
+    .update({
+      name: String(formData.get("name") ?? ""),
+      amount,
+      category: String(formData.get("category") ?? ""),
+      kind,
+      expected_date: String(formData.get("expectedDate") ?? todayValue()),
+      notes: notesValue ? notesValue : null,
+    })
+    .eq("id", incomeId)
+    .eq("user_id", user.id)
+    .neq("status", "received");
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  revalidatePath("/income");
+  revalidatePath("/dashboard");
+}
 async function deleteExpectedIncomeAction(formData: FormData) {
   "use server";
 
@@ -348,6 +389,7 @@ export default async function IncomePage({ searchParams }: IncomePageProps) {
               {incomes.map((income) => {
                 const isProjected = isProjectedPlan(income.id);
                 const canMarkReceived = isIncomeExpected(income);
+                const canEdit = income.status !== "received" && !isProjected;
                 const canDelete = income.status !== "received" && !isProjected;
 
                 return (
@@ -393,6 +435,21 @@ export default async function IncomePage({ searchParams }: IncomePageProps) {
                             </form>
                           ) : null}
 
+                          {canEdit ? (
+                            <EditIncomePlanDialog
+                              action={updateExpectedIncomeAction}
+                              income={{
+                                id: income.id,
+                                name: income.name,
+                                amount: income.amount,
+                                category: income.category,
+                                kind: income.kind,
+                                expectedDate: income.expectedDate,
+                                notes: income.notes,
+                              }}
+                            />
+                          ) : null}
+
                           {canDelete ? (
                             <ConfirmActionButton
                               action={deleteExpectedIncomeAction}
@@ -426,4 +483,5 @@ export default async function IncomePage({ searchParams }: IncomePageProps) {
     </AppShell>
   );
 }
+
 
