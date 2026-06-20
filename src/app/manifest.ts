@@ -1,7 +1,8 @@
 ﻿import type { MetadataRoute } from "next";
 
-type BrújulaManifest = MetadataRoute.Manifest & {
+type BrujulaManifest = MetadataRoute.Manifest & {
   id?: string;
+  orientation?: "portrait" | "portrait-primary" | "any";
   screenshots?: {
     src: string;
     sizes: string;
@@ -11,7 +12,7 @@ type BrújulaManifest = MetadataRoute.Manifest & {
   }[];
 };
 
-export default function manifest(): BrújulaManifest {
+export default function manifest(): BrujulaManifest {
   return {
     id: "/dashboard",
     name: "Brújula V2 - Finanzas personales",
@@ -21,8 +22,11 @@ export default function manifest(): BrújulaManifest {
     start_url: "/dashboard",
     scope: "/",
     display: "standalone",
+    orientation: "portrait",
     background_color: "#030716",
     theme_color: "#34d399",
+    categories: ["finance", "productivity", "utilities"],
+    lang: "es-CO",
     icons: [
       {
         src: "/icon-192x192.png",
