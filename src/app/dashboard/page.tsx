@@ -18,7 +18,6 @@ import {
   paymentPlanRowToPaymentPlan,
 } from "@/lib/finance/mappers";
 import { formatMoney } from "@/lib/finance/money";
-import { getMovementDisplaySource } from "@/lib/finance/movements";
 import {
   projectIncomePlansForMonth,
   projectPaymentPlansForMonth,
@@ -179,12 +178,12 @@ export default async function DashboardPage({
 
   return (
     <AppShell active="dashboard" userEmail={user.email}>
-      <section className="mx-auto max-w-6xl">
-        <div className="mb-8">
-          <p className="mb-3 text-xs font-bold uppercase tracking-[0.35em] text-emerald-300">
+      <section className="mx-auto w-full max-w-6xl">
+        <div className="mb-5 lg:mb-8">
+          <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.3em] text-emerald-300 lg:mb-3">
             Brújula V2
           </p>
-          <h1 className="text-4xl font-semibold tracking-tight">
+          <h1 className="text-3xl font-semibold tracking-tight lg:text-4xl">
             Inicio financiero
           </h1>
           <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-300">
@@ -193,16 +192,16 @@ export default async function DashboardPage({
           </p>
         </div>
 
-        <div className="mb-6">
+        <div className="mb-4 lg:mb-6">
           <MonthSelector month={month} basePath="/dashboard" />
         </div>
 
-        <div className="mb-6 rounded-[2rem] border border-emerald-300/20 bg-emerald-300/10 p-6 shadow-2xl shadow-emerald-950/20">
-          <p className="mb-2 text-xs font-bold uppercase tracking-[0.3em] text-emerald-200">
+        <div className="mb-4 rounded-[1.6rem] border border-emerald-300/20 bg-emerald-300/10 p-4 shadow-2xl shadow-emerald-950/20 lg:mb-6 lg:rounded-[2rem] lg:p-6">
+          <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.28em] text-emerald-200 lg:text-xs">
             Disponible estimado · {getMonthLabel(month)}
           </p>
           <h2
-            className={`text-5xl font-bold tracking-tight ${
+            className={`text-4xl font-bold tracking-tight lg:text-5xl ${
               summary.availableEstimated >= 0
                 ? "text-emerald-100"
                 : "text-rose-100"
@@ -210,61 +209,61 @@ export default async function DashboardPage({
           >
             {formatMoney(summary.availableEstimated)}
           </h2>
-          <p className="mt-4 max-w-2xl text-sm leading-6 text-emerald-100/80">
+          <p className="mt-3 max-w-2xl text-sm leading-6 text-emerald-100/80 lg:mt-4">
             Ingresos reales + ingresos esperados pendientes - gastos reales -
             pagos pendientes de agenda.
           </p>
         </div>
 
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
-          <article className="rounded-3xl border border-emerald-300/20 bg-emerald-300/10 p-5">
+        <div className="grid gap-3 xl:grid-cols-5">
+          <article className="rounded-[1.4rem] border border-emerald-300/20 bg-emerald-300/10 p-4 lg:rounded-3xl lg:p-5">
             <p className="text-sm text-emerald-200">Ingresos reales</p>
-            <h3 className="mt-3 text-2xl font-semibold text-emerald-100">
+            <h3 className="mt-2 text-2xl font-semibold text-emerald-100">
               {formatMoney(summary.realIncome)}
             </h3>
           </article>
 
-          <article className="rounded-3xl border border-sky-300/20 bg-sky-300/10 p-5">
+          <article className="rounded-[1.4rem] border border-sky-300/20 bg-sky-300/10 p-4 lg:rounded-3xl lg:p-5">
             <p className="text-sm text-sky-200">Ingresos esperados</p>
-            <h3 className="mt-3 text-2xl font-semibold text-sky-100">
+            <h3 className="mt-2 text-2xl font-semibold text-sky-100">
               {formatMoney(summary.expectedIncome)}
             </h3>
           </article>
 
-          <article className="rounded-3xl border border-rose-300/20 bg-rose-300/10 p-5">
+          <article className="rounded-[1.4rem] border border-rose-300/20 bg-rose-300/10 p-4 lg:rounded-3xl lg:p-5">
             <p className="text-sm text-rose-200">Gastos reales</p>
-            <h3 className="mt-3 text-2xl font-semibold text-rose-100">
+            <h3 className="mt-2 text-2xl font-semibold text-rose-100">
               {formatMoney(summary.realExpenses)}
             </h3>
           </article>
 
-          <article className="rounded-3xl border border-amber-300/20 bg-amber-300/10 p-5">
+          <article className="rounded-[1.4rem] border border-amber-300/20 bg-amber-300/10 p-4 lg:rounded-3xl lg:p-5">
             <p className="text-sm text-amber-200">Agenda pendiente</p>
-            <h3 className="mt-3 text-2xl font-semibold text-amber-100">
+            <h3 className="mt-2 text-2xl font-semibold text-amber-100">
               {formatMoney(summary.pendingPayments)}
             </h3>
           </article>
 
-          <article className="rounded-3xl border border-white/10 bg-white/[0.04] p-5">
+          <article className="rounded-[1.4rem] border border-white/10 bg-white/[0.04] p-4 lg:rounded-3xl lg:p-5">
             <p className="text-sm text-slate-400">Salud financiera</p>
-            <h3 className="mt-3 text-2xl font-semibold">
+            <h3 className="mt-2 text-2xl font-semibold">
               {summary.healthScore}/100
             </h3>
           </article>
         </div>
 
-        <div className="mt-6 grid gap-4 md:grid-cols-3">
-          <article className="rounded-3xl border border-white/10 bg-white/[0.04] p-5">
+        <div className="mt-4 grid gap-3 xl:grid-cols-3">
+          <article className="rounded-[1.4rem] border border-white/10 bg-white/[0.04] p-4 lg:rounded-3xl lg:p-5">
             <p className="text-sm text-slate-400">Espacio principal</p>
-            <h3 className="mt-3 text-2xl font-semibold">{space.name}</h3>
+            <h3 className="mt-2 text-2xl font-semibold">{space.name}</h3>
             <p className="mt-2 text-sm text-slate-300">
               Tipo: {space.type === "personal" ? "Personal" : "Compartido"}
             </p>
           </article>
 
-          <article className="rounded-3xl border border-white/10 bg-white/[0.04] p-5">
+          <article className="rounded-[1.4rem] border border-white/10 bg-white/[0.04] p-4 lg:rounded-3xl lg:p-5">
             <p className="text-sm text-slate-400">Presupuesto mensual</p>
-            <h3 className="mt-3 text-2xl font-semibold">
+            <h3 className="mt-2 text-2xl font-semibold">
               {formatMoney(Number(space.monthly_budget))}
             </h3>
             <p className="mt-2 text-sm text-slate-300">
@@ -272,10 +271,10 @@ export default async function DashboardPage({
             </p>
           </article>
 
-          <article className="rounded-3xl border border-white/10 bg-white/[0.04] p-5">
+          <article className="rounded-[1.4rem] border border-white/10 bg-white/[0.04] p-4 lg:rounded-3xl lg:p-5">
             <p className="text-sm text-slate-400">Balance real</p>
             <h3
-              className={`mt-3 text-2xl font-semibold ${
+              className={`mt-2 text-2xl font-semibold ${
                 summary.movementBalance >= 0
                   ? "text-emerald-200"
                   : "text-rose-200"
@@ -289,26 +288,26 @@ export default async function DashboardPage({
           </article>
         </div>
 
-        <div className="mt-6 grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
-          <section className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-6 shadow-2xl shadow-black/20">
-            <div className="mb-5 flex items-center justify-between gap-4">
+        <div className="mt-4 grid gap-4 xl:mt-6 xl:grid-cols-[1.2fr_0.8fr]">
+          <section className="rounded-[1.6rem] border border-white/10 bg-white/[0.04] p-4 shadow-2xl shadow-black/20 lg:rounded-[2rem] lg:p-6">
+            <div className="mb-4 flex items-center justify-between gap-4 lg:mb-5">
               <div>
                 <p className="text-sm text-slate-400">Historial</p>
-                <h2 className="text-2xl font-semibold">
+                <h2 className="text-xl font-semibold lg:text-2xl">
                   Actividad reciente
                 </h2>
               </div>
 
               <Link
                 href={`/movements?month=${month}`}
-                className="rounded-full border border-white/10 px-3 py-1 text-xs font-semibold text-slate-300 transition hover:bg-white/10"
+                className="shrink-0 rounded-full border border-white/10 px-3 py-1 text-xs font-semibold text-slate-300 transition hover:bg-white/10"
               >
                 Ver todo
               </Link>
             </div>
 
             {recentMovements.length === 0 ? (
-              <div className="rounded-3xl border border-dashed border-white/10 p-8 text-center">
+              <div className="rounded-3xl border border-dashed border-white/10 p-6 text-center lg:p-8">
                 <p className="font-semibold">Sin movimientos en este periodo</p>
                 <p className="mt-2 text-sm text-slate-400">
                   Los pagos confirmados, ingresos recibidos y gastos manuales
@@ -323,10 +322,10 @@ export default async function DashboardPage({
                   return (
                     <article
                       key={movement.id}
-                      className="rounded-3xl border border-white/10 bg-black/20 p-4"
+                      className="rounded-[1.3rem] border border-white/10 bg-black/20 p-4 lg:rounded-3xl"
                     >
-                      <div className="flex items-start justify-between gap-4">
-                        <div>
+                      <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                        <div className="min-w-0">
                           <p className="font-semibold">{movement.name}</p>
                           <div className="mt-2 flex flex-wrap items-center gap-2 text-sm text-slate-400">
                             <span>{movement.category}</span>
@@ -337,7 +336,7 @@ export default async function DashboardPage({
                         </div>
 
                         <p
-                          className={`text-right text-lg font-bold ${
+                          className={`text-left text-lg font-bold lg:text-right ${
                             isIncome ? "text-emerald-300" : "text-rose-300"
                           }`}
                         >
@@ -352,25 +351,25 @@ export default async function DashboardPage({
             )}
           </section>
 
-          <section className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-6 shadow-2xl shadow-black/20">
-            <div className="mb-5 flex items-center justify-between gap-4">
+          <section className="rounded-[1.6rem] border border-white/10 bg-white/[0.04] p-4 shadow-2xl shadow-black/20 lg:rounded-[2rem] lg:p-6">
+            <div className="mb-4 flex items-center justify-between gap-4 lg:mb-5">
               <div>
                 <p className="text-sm text-slate-400">Agenda</p>
-                <h2 className="text-2xl font-semibold">
+                <h2 className="text-xl font-semibold lg:text-2xl">
                   Próximos pagos
                 </h2>
               </div>
 
               <Link
                 href={`/payments?month=${month}`}
-                className="rounded-full border border-white/10 px-3 py-1 text-xs font-semibold text-slate-300 transition hover:bg-white/10"
+                className="shrink-0 rounded-full border border-white/10 px-3 py-1 text-xs font-semibold text-slate-300 transition hover:bg-white/10"
               >
                 Ver agenda
               </Link>
             </div>
 
             {upcomingPayments.length === 0 ? (
-              <div className="rounded-3xl border border-dashed border-white/10 p-8 text-center">
+              <div className="rounded-3xl border border-dashed border-white/10 p-6 text-center lg:p-8">
                 <p className="font-semibold">Sin pagos pendientes</p>
                 <p className="mt-2 text-sm text-slate-400">
                   Tu agenda del periodo no tiene salidas pendientes.
@@ -381,17 +380,17 @@ export default async function DashboardPage({
                 {upcomingPayments.map((payment) => (
                   <article
                     key={payment.id}
-                    className="rounded-3xl border border-amber-300/10 bg-amber-300/5 p-4"
+                    className="rounded-[1.3rem] border border-amber-300/10 bg-amber-300/5 p-4 lg:rounded-3xl"
                   >
-                    <div className="flex items-start justify-between gap-4">
-                      <div>
+                    <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                      <div className="min-w-0">
                         <p className="font-semibold">{payment.name}</p>
                         <p className="mt-1 text-sm text-slate-400">
                           {payment.category} · {payment.dueDate ?? "Sin fecha"}
                         </p>
                       </div>
 
-                      <p className="text-right text-lg font-bold text-amber-200">
+                      <p className="text-left text-lg font-bold text-amber-200 lg:text-right">
                         {formatMoney(payment.amount)}
                       </p>
                     </div>
@@ -402,15 +401,15 @@ export default async function DashboardPage({
           </section>
         </div>
 
-        <section className="mt-6 rounded-[2rem] border border-emerald-300/20 bg-emerald-300/10 p-6 shadow-2xl shadow-emerald-950/20">
-          <p className="mb-3 text-xs font-bold uppercase tracking-[0.3em] text-emerald-200">
+        <section className="mt-4 rounded-[1.6rem] border border-emerald-300/20 bg-emerald-300/10 p-4 shadow-2xl shadow-emerald-950/20 lg:mt-6 lg:rounded-[2rem] lg:p-6">
+          <p className="mb-3 text-[11px] font-bold uppercase tracking-[0.28em] text-emerald-200 lg:text-xs">
             Brújula recomienda
           </p>
           <div className="grid gap-3">
             {recommendations.map((recommendation) => (
               <div
                 key={recommendation}
-                className="rounded-3xl border border-emerald-300/10 bg-black/20 p-4 text-sm leading-6 text-emerald-50/90"
+                className="rounded-[1.3rem] border border-emerald-300/10 bg-black/20 p-4 text-sm leading-6 text-emerald-50/90 lg:rounded-3xl"
               >
                 {recommendation}
               </div>
@@ -421,4 +420,3 @@ export default async function DashboardPage({
     </AppShell>
   );
 }
-
