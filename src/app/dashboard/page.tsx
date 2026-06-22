@@ -30,12 +30,134 @@ type DashboardPageProps = {
   }>;
 };
 
+type OnboardingActionCardProps = {
+  href: string;
+  step: string;
+  title: string;
+  description: string;
+  action: string;
+};
+
 function resolveMonth(month?: string) {
   if (!month || !/^\d{4}-\d{2}$/.test(month)) {
     return currentMonthValue();
   }
 
   return month;
+}
+
+function OnboardingActionCard({
+  href,
+  step,
+  title,
+  description,
+  action,
+}: OnboardingActionCardProps) {
+  return (
+    <Link
+      href={href}
+      className="group rounded-[1.4rem] border border-white/10 bg-black/20 p-4 transition hover:border-emerald-300/30 hover:bg-emerald-300/10 lg:rounded-3xl lg:p-5"
+    >
+      <p className="text-[11px] font-bold uppercase tracking-[0.25em] text-emerald-300">
+        {step}
+      </p>
+      <h3 className="mt-3 text-lg font-semibold text-white">{title}</h3>
+      <p className="mt-2 text-sm leading-6 text-slate-400">{description}</p>
+      <span className="mt-4 inline-flex rounded-full border border-emerald-300/20 px-3 py-1 text-xs font-semibold text-emerald-200 transition group-hover:bg-emerald-300 group-hover:text-slate-950">
+        {action}
+      </span>
+    </Link>
+  );
+}
+
+function FirstRunOnboarding({ month }: { month: string }) {
+  return (
+    <section className="mb-4 rounded-[1.6rem] border border-emerald-300/20 bg-emerald-300/10 p-4 shadow-2xl shadow-emerald-950/20 lg:mb-6 lg:rounded-[2rem] lg:p-6">
+      <div className="max-w-3xl">
+        <p className="text-[11px] font-bold uppercase tracking-[0.3em] text-emerald-200">
+          Primeros pasos
+        </p>
+        <h2 className="mt-3 text-2xl font-semibold tracking-tight lg:text-3xl">
+          Bienvenido a Brújula
+        </h2>
+        <p className="mt-3 text-sm leading-6 text-emerald-50/80">
+          Tu espacio está limpio. Para que el dashboard empiece a darte una
+          lectura real, completa estos pasos en orden. No tienes que hacerlo
+          todo perfecto: solo necesitas registrar la base de tu mes.
+        </p>
+      </div>
+
+      <div className="mt-5 grid gap-3 lg:grid-cols-4">
+        <OnboardingActionCard
+          href={`/income?month=${month}`}
+          step="Paso 1"
+          title="Crea tu ingreso principal"
+          description="Agrega tu salario, ingreso fijo o entrada esperada del mes."
+          action="Crear ingreso"
+        />
+
+        <OnboardingActionCard
+          href={`/payments?month=${month}`}
+          step="Paso 2"
+          title="Agrega tus pagos fijos"
+          description="Registra arriendo, servicios, deudas, suscripciones o cuotas."
+          action="Agregar pagos"
+        />
+
+        <OnboardingActionCard
+          href={`/movements?month=${month}`}
+          step="Paso 3"
+          title="Registra gastos reales"
+          description="Cuando gastes dinero fuera de la agenda, guárdalo como gasto manual."
+          action="Registrar gasto"
+        />
+
+        <OnboardingActionCard
+          href="/settings"
+          step="Opcional"
+          title="Configura tu presupuesto"
+          description="Define un presupuesto mensual base para tener una referencia inicial."
+          action="Configurar"
+        />
+      </div>
+    </section>
+  );
+}
+
+function EmptyMonthGuide({ month }: { month: string }) {
+  return (
+    <section className="mb-4 rounded-[1.6rem] border border-sky-300/20 bg-sky-300/10 p-4 shadow-2xl shadow-black/20 lg:mb-6 lg:rounded-[2rem] lg:p-6">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+        <div>
+          <p className="text-[11px] font-bold uppercase tracking-[0.3em] text-sky-200">
+            Mes sin actividad
+          </p>
+          <h2 className="mt-3 text-2xl font-semibold">
+            Este periodo todavía no tiene datos
+          </h2>
+          <p className="mt-2 max-w-2xl text-sm leading-6 text-sky-50/80">
+            Puedes crear ingresos esperados, agregar pagos o registrar un gasto
+            real para que Brújula calcule el disponible de este mes.
+          </p>
+        </div>
+
+        <div className="flex flex-wrap gap-2">
+          <Link
+            href={`/income?month=${month}`}
+            className="rounded-full bg-sky-300 px-4 py-2 text-sm font-bold text-slate-950"
+          >
+            Crear ingreso
+          </Link>
+          <Link
+            href={`/payments?month=${month}`}
+            className="rounded-full border border-white/10 px-4 py-2 text-sm font-semibold text-slate-200"
+          >
+            Agregar pago
+          </Link>
+        </div>
+      </div>
+    </section>
+  );
 }
 
 function getDashboardRecommendations({
@@ -138,6 +260,10 @@ export default async function DashboardPage({
     throw new Error(incomePlansResponse.error.message);
   }
 
+  const rawMovementsCount = movementsResponse.data?.length ?? 0;
+  const rawPaymentPlansCount = paymentPlansResponse.data?.length ?? 0;
+  const rawIncomePlansCount = incomePlansResponse.data?.length ?? 0;
+
   const movements = (movementsResponse.data ?? []).map(movementRowToMovement);
 
   const paymentPlans = projectPaymentPlansForMonth(
@@ -168,6 +294,22 @@ export default async function DashboardPage({
     )
     .slice(0, 5);
 
+  const hasAnyFinancialData =
+    rawMovementsCount + rawPaymentPlansCount + rawIncomePlansCount > 0;
+
+  const hasMonthActivity =
+    recentMovements.length > 0 ||
+    upcomingPayments.length > 0 ||
+    summary.realIncome > 0 ||
+    summary.expectedIncome > 0 ||
+    summary.realExpenses > 0 ||
+    summary.pendingPayments > 0;
+
+  const showFirstRunOnboarding =
+    !hasAnyFinancialData && Number(space.monthly_budget) === 0;
+
+  const showEmptyMonthGuide = hasAnyFinancialData && !hasMonthActivity;
+
   const recommendations = getDashboardRecommendations({
     availableEstimated: summary.availableEstimated,
     realIncome: summary.realIncome,
@@ -195,6 +337,9 @@ export default async function DashboardPage({
         <div className="mb-4 lg:mb-6">
           <MonthSelector month={month} basePath="/dashboard" />
         </div>
+
+        {showFirstRunOnboarding ? <FirstRunOnboarding month={month} /> : null}
+        {showEmptyMonthGuide ? <EmptyMonthGuide month={month} /> : null}
 
         <div className="mb-4 rounded-[1.6rem] border border-emerald-300/20 bg-emerald-300/10 p-4 shadow-2xl shadow-emerald-950/20 lg:mb-6 lg:rounded-[2rem] lg:p-6">
           <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.28em] text-emerald-200 lg:text-xs">
@@ -331,7 +476,9 @@ export default async function DashboardPage({
                             <span>{movement.category}</span>
                             <span>·</span>
                             <span>{movement.occurredOn}</span>
-                            <MovementSourceBadge sourceType={movement.sourceType} />
+                            <MovementSourceBadge
+                              sourceType={movement.sourceType}
+                            />
                           </div>
                         </div>
 
